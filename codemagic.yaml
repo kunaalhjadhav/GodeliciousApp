@@ -20,8 +20,4 @@ workflows:
             -workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
             -scheme "$XCODE_SCHEME" \
             -sdk iphonesimulator \
-<<<<<<< HEAD
             -destination 'generic/platform=iOS Simulator'
-=======
-            -destination 'generic/platform=iOS Simulator'
->>>>>>> 7135fd29d85d5b634837343435ba7e72f1b07c48
