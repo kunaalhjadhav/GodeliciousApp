@@ -72,6 +72,8 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -86,6 +88,12 @@ android {
         versionName "1.0"
     }
     signingConfigs {
+        release {
+            storeFile file(GODELICIOUS_UPLOAD_STORE_FILE)
+            storePassword GODELICIOUS_UPLOAD_STORE_PASSWORD
+            keyAlias GODELICIOUS_UPLOAD_KEY_ALIAS
+            keyPassword GODELICIOUS_UPLOAD_KEY_PASSWORD
+        }
         debug {
             storeFile file('debug.keystore')
             storePassword 'android'
@@ -98,16 +106,26 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
-            minifyEnabled enableProguardInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+        
     }
 }
 
+configurations.all {
+    // com.razorpay:checkout already bundles everything from these two older
+    // packages internally — without this exclusion, Gradle also pulls them
+    // in separately (likely via react-native-razorpay's own dependency), and
+    // the exact same classes end up defined twice, which fails the build.
+    exclude group: 'com.razorpay', module: 'core'
+    exclude group: 'com.razorpay', module: 'standard-core'
+}
+
 dependencies {
+
+    implementation 'com.razorpay:checkout:1.6.33'
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
