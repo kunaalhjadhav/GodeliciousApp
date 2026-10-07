@@ -136,26 +136,26 @@ export default function HomeScreen({ navigation }) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <TouchableOpacity onPress={() => navigation.navigate("ItemDetail", { itemId: item.id })}>
+            <TouchableOpacity onPress={() => navigation.navigate("ItemDetail", { itemId: item.id })} activeOpacity={0.9}>
               {item.imageUrl ? (
                 <Image source={{ uri: resolveImageUrl(item.imageUrl) }} style={styles.cardImage} resizeMode="cover" />
               ) : (
                 <View style={[styles.cardImage, styles.cardImagePlaceholder]} />
               )}
+              {item.soldByWeight && (
+                <View style={styles.imageBadge}>
+                  <Text style={styles.imageBadgeText}>PER KG</Text>
+                </View>
+              )}
             </TouchableOpacity>
-            <View style={{ flex: 1 }}>
+            <View style={styles.cardBody}>
               <TouchableOpacity onPress={() => navigation.navigate("ItemDetail", { itemId: item.id })}>
                 <View style={styles.cardTitleRow}>
                   <View style={[styles.vegDot, { backgroundColor: item.isVeg ? colors.basil : colors.chili }]} />
-                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
                   {item.isCombo && (
                     <View style={styles.comboBadge}>
                       <Text style={styles.comboBadgeText}>COMBO</Text>
-                    </View>
-                  )}
-                  {item.soldByWeight && (
-                    <View style={[styles.comboBadge, { backgroundColor: "rgba(47,82,51,0.15)" }]}>
-                      <Text style={[styles.comboBadgeText, { color: colors.basil }]}>PER KG</Text>
                     </View>
                   )}
                 </View>
@@ -220,23 +220,26 @@ const styles = StyleSheet.create({
   categoryLabel: { fontSize: 11, color: colors.inkFaint, marginTop: 4, textAlign: "center" },
   categoryLabelActive: { color: colors.saffron2, fontWeight: "700" },
   card: {
-    flexDirection: "row", backgroundColor: colors.white, borderRadius: 8, marginBottom: spacing.sm,
-    padding: spacing.sm, borderWidth: 1, borderColor: colors.line,
-    shadowColor: "#1C1B19", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6,
+    backgroundColor: colors.white, borderRadius: 14, marginBottom: spacing.md,
+    borderWidth: 1, borderColor: colors.line, overflow: "hidden",
+    shadowColor: "#1C1B19", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 8,
     elevation: 2,
   },
-  cardImage: { width: 64, height: 64, borderRadius: 4, marginRight: spacing.sm },
+  cardImage: { width: "100%", height: 170 },
   cardImagePlaceholder: { backgroundColor: colors.line },
-  cardTitleRow: { flexDirection: "row", alignItems: "center", marginBottom: 2 },
-  vegDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
-  cardTitle: { fontSize: 15, fontWeight: "600", color: colors.ink },
-  comboBadge: { backgroundColor: "rgba(232,163,61,0.2)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3, marginLeft: 6 },
-  comboBadgeText: { fontSize: 9, fontWeight: "700", color: colors.saffron2 },
-  cardDesc: { fontSize: 12, color: colors.inkFaint, marginBottom: 6 },
+  imageBadge: { position: "absolute", top: 10, left: 10, backgroundColor: colors.basil, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 6 },
+  imageBadgeText: { fontSize: 10, fontWeight: "700", color: colors.paper },
+  cardBody: { padding: spacing.md },
+  cardTitleRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
+  vegDot: { width: 9, height: 9, borderRadius: 5, marginRight: 7 },
+  cardTitle: { fontSize: 17, fontWeight: "600", color: colors.ink, flexShrink: 1 },
+  comboBadge: { backgroundColor: "rgba(232,163,61,0.2)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 },
+  comboBadgeText: { fontSize: 10, fontWeight: "700", color: colors.saffron2 },
+  cardDesc: { fontSize: 13, color: colors.inkFaint, marginBottom: 10, lineHeight: 18 },
   cardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  cardPrice: { fontSize: 14, fontWeight: "600", color: colors.ink },
-  addButton: { backgroundColor: colors.saffron, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 4 },
-  addButtonText: { color: colors.charcoal, fontWeight: "700", fontSize: 12 },
+  cardPrice: { fontSize: 16, fontWeight: "700", color: colors.ink },
+  addButton: { backgroundColor: colors.saffron, paddingHorizontal: 18, paddingVertical: 9, borderRadius: 8 },
+  addButtonText: { color: colors.charcoal, fontWeight: "700", fontSize: 13 },
   empty: { textAlign: "center", color: colors.inkFaint, marginTop: spacing.xl },
   cartBar: {
     position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: colors.charcoal,

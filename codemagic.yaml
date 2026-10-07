@@ -1,6 +1,6 @@
 workflows:
-  ios-unsigned-test:
-    name: iOS Unsigned Test Build
+  ios-simulator-build:
+    name: iOS Simulator Build (for Appetize)
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -14,10 +14,18 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios && pod install
-      - name: Build for iOS Simulator (no signing needed)
+      - name: Build Release app for iOS Simulator
         script: |
           xcodebuild build \
             -workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
             -scheme "$XCODE_SCHEME" \
             -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator'
+            -configuration Release \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$CM_BUILD_DIR/build"
+      - name: Zip the app for upload
+        script: |
+          cd "$CM_BUILD_DIR/build/Build/Products/Release-iphonesimulator"
+          zip -r "$CM_BUILD_DIR/GodeliciousApp-simulator.zip" GodeliciousApp.app
+    artifacts:
+      - GodeliciousApp-simulator.zip

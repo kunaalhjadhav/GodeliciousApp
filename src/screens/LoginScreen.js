@@ -7,12 +7,8 @@ import { api } from "../api/client";
 import { colors, spacing } from "../theme";
 import { APP_NAME, APP_TAGLINE } from "../brand";
 
-export default function LoginScreen({ navigation }) {
-  const { login, loginWithOtp } = useAuth();
-  const [mode, setMode] = useState("password"); // "password" | "otp"
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export default function LoginScreen() {
+  const { loginWithOtp } = useAuth();
 
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -22,24 +18,9 @@ export default function LoginScreen({ navigation }) {
 
   const [submitting, setSubmitting] = useState(false);
 
-  async function handleLogin() {
-    if (!email || !password) {
-      Alert.alert("Missing info", "Please enter your email and password.");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await login(email, password);
-    } catch (err) {
-      Alert.alert("Couldn't sign in", err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   async function requestCode() {
-    if (!phone) {
-      Alert.alert("Missing info", "Please enter your phone number.");
+    if (!name || !phone) {
+      Alert.alert("Missing info", "Please enter your name and phone number.");
       return;
     }
     setSubmitting(true);
@@ -77,80 +58,48 @@ export default function LoginScreen({ navigation }) {
         <Text style={styles.subtitle}>{APP_TAGLINE}</Text>
 
         <View style={styles.form}>
-          <View style={styles.modeToggle}>
-            <TouchableOpacity
-              onPress={() => setMode("password")}
-              style={[styles.modeBtn, mode === "password" && styles.modeBtnActive]}
-            >
-              <Text style={[styles.modeBtnText, mode === "password" && styles.modeBtnTextActive]}>Email & password</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setMode("otp")}
-              style={[styles.modeBtn, mode === "otp" && styles.modeBtnActive]}
-            >
-              <Text style={[styles.modeBtnText, mode === "otp" && styles.modeBtnTextActive]}>Phone OTP</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.helper}>New here? Just enter your details — your account is created automatically.</Text>
 
-          {mode === "password" ? (
+          <Text style={styles.label}>Your name</Text>
+          <TextInput
+            style={[styles.input, otpSent && styles.inputDisabled]} value={name} onChangeText={setName}
+            editable={!otpSent} placeholder="Jane Doe"
+          />
+
+          <Text style={styles.label}>Mobile number</Text>
+          <TextInput
+            style={[styles.input, otpSent && styles.inputDisabled]} value={phone} onChangeText={setPhone}
+            editable={!otpSent} keyboardType="phone-pad" placeholder="9876543210" autoComplete="tel"
+          />
+
+          {otpSent && (
             <>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>Enter the 6-digit code</Text>
               <TextInput
-                style={styles.input} value={email} onChangeText={setEmail}
-                autoCapitalize="none" keyboardType="email-address" placeholder="you@example.com"
+                style={styles.input} value={code} onChangeText={setCode}
+                keyboardType="number-pad" maxLength={6} placeholder="123456"
+                autoComplete="sms-otp" textContentType="oneTimeCode"
               />
-              <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={styles.input} value={password} onChangeText={setPassword}
-                secureTextEntry placeholder="••••••••"
-              />
-              <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={submitting}>
-                <Text style={styles.buttonText}>{submitting ? "Signing in…" : "Sign in"}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.navigate("Register")} style={{ marginTop: spacing.md }}>
-                <Text style={styles.link}>New here? Create an account</Text>
-              </TouchableOpacity>
-              <Text style={styles.hint}>seed login: customer@godelicious.com / Customer@123</Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.label}>Phone number</Text>
-              <TextInput
-                style={[styles.input, otpSent && styles.inputDisabled]} value={phone} onChangeText={setPhone}
-                editable={!otpSent} keyboardType="phone-pad" placeholder="9876543210"
-              />
-
-              {otpSent && (
-                <>
-                  <Text style={styles.label}>Enter the 6-digit code</Text>
-                  <TextInput
-                    style={styles.input} value={code} onChangeText={setCode}
-                    keyboardType="number-pad" maxLength={6} placeholder="123456"
-                  />
-                  <Text style={styles.label}>Your name (first time only)</Text>
-                  <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Jane Doe" />
-                  {!!devCode && (
-                    <Text style={styles.devCode}>Dev mode — your code is {devCode}</Text>
-                  )}
-                </>
-              )}
-
-              <TouchableOpacity
-                style={styles.button}
-                onPress={otpSent ? verifyCode : requestCode}
-                disabled={submitting}
-              >
-                <Text style={styles.buttonText}>
-                  {submitting ? "Please wait…" : otpSent ? "Verify & sign in" : "Send code"}
-                </Text>
-              </TouchableOpacity>
-
-              {otpSent && (
-                <TouchableOpacity onPress={() => { setOtpSent(false); setCode(""); setDevCode(""); }} style={{ marginTop: spacing.md }}>
-                  <Text style={styles.link}>Use a different phone number</Text>
-                </TouchableOpacity>
+              {!!devCode && (
+                <Text style={styles.devCode}>Dev mode — your code is {devCode}</Text>
               )}
             </>
+          )}
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={otpSent ? verifyCode : requestCode}
+            disabled={submitting}
+          >
+            <Text style={styles.buttonText}>
+              {submitting ? "Please wait…" : otpSent ? "Verify & continue" : "Send code"}
+            </Text>
+          </TouchableOpacity>
+
+          {otpSent && (
+            <TouchableOpacity onPress={() => { setOtpSent(false); setCode(""); setDevCode(""); }} style={{ marginTop: spacing.md }}>
+              <Text style={styles.link}>Use a different number</Text>
+            </TouchableOpacity>
           )}
         </View>
       </ScrollView>
@@ -168,11 +117,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12,
     elevation: 6,
   },
-  modeToggle: { flexDirection: "row", marginBottom: spacing.md },
-  modeBtn: { flex: 1, paddingVertical: 8, borderRadius: 4, borderWidth: 1, borderColor: colors.line, alignItems: "center", marginHorizontal: 2 },
-  modeBtnActive: { backgroundColor: colors.charcoal, borderColor: colors.charcoal },
-  modeBtnText: { fontSize: 12, color: colors.ink },
-  modeBtnTextActive: { color: colors.paper },
+  helper: { fontSize: 12, color: colors.inkFaint, marginBottom: spacing.sm },
   label: { fontSize: 12, color: colors.inkFaint, marginBottom: 4, marginTop: spacing.sm, textTransform: "uppercase" },
   input: {
     borderWidth: 1, borderColor: colors.line, borderRadius: 4, padding: 10,
@@ -183,5 +128,4 @@ const styles = StyleSheet.create({
   button: { backgroundColor: colors.charcoal, borderRadius: 4, padding: 14, alignItems: "center", marginTop: spacing.lg },
   buttonText: { color: colors.paper, fontWeight: "600", fontSize: 15 },
   link: { color: colors.saffron2, textAlign: "center", fontSize: 14 },
-  hint: { fontSize: 11, color: colors.inkFaint, textAlign: "center", marginTop: spacing.md },
 });

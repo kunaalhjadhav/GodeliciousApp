@@ -8,7 +8,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // - Android emulator:  http://10.0.2.2:5000
 // - iOS simulator:     http://localhost:5000
 // - Physical device:   http://<your-computer-LAN-IP>:5000  (e.g. 192.168.1.5)
-export const API_URL = "https://godelicious-production.up.railway.app";
+export const API_URL = "https://diplomatic-creativity-production-eebd.up.railway.app";
 
 const TOKEN_KEY = "godelicious_token";
 

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Image, ActivityIndicator } from "react-native";
 import Geolocation from "@react-native-community/geolocation";
 import RazorpayCheckout from "react-native-razorpay";
-import { api } from "../api/client";
+import { api, API_URL } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { colors, spacing } from "../theme";
@@ -11,6 +11,11 @@ import { GOOGLE_MAPS_API_KEY } from "../config";
 import LocationPickerMap from "../components/LocationPickerMap";
 
 const MIN_LEAD_HOURS = 15;
+
+function resolveImageUrl(url) {
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${API_URL}${url}`;
+}
 
 // Half-hour delivery slots, 8:00 AM – 9:00 PM
 function buildTimeSlots() {
@@ -26,9 +31,7 @@ function buildTimeSlots() {
 }
 const TIME_SLOTS = buildTimeSlots();
 
-// Next 14 days as selectable buttons — replaces the native calendar picker
-// entirely, since it was reliably crashing on this device. No native module
-// involved at all here, just plain Date arithmetic and buttons.
+// Next 14 days as selectable buttons — no native calendar module involved.
 function buildDateSlots() {
   const days = [];
   for (let i = 0; i < 14; i++) {
@@ -45,8 +48,6 @@ function buildDateSlots() {
 }
 const DATE_SLOTS = buildDateSlots();
 
-// Combines the Date object (date-only) from the picker with a "H:MM AM/PM"
-// slot string into one real Date, for the 15-hour lead-time check.
 function combineDateTime(dateObj, timeStr) {
   if (!dateObj || !timeStr) return null;
   const date = new Date(dateObj);
@@ -73,6 +74,11 @@ export default function CheckoutScreen({ navigation }) {
   const [coords, setCoords] = useState(null);
   const [locating, setLocating] = useState(false);
   const [showMap, setShowMap] = useState(false);
+
+  // Address autocomplete (Google Places)
+  const [suggestions, setSuggestions] = useState([]);
+  const [searchingAddress, setSearchingAddress] = useState(false);
+  const autocompleteTimer = useRef(null);
 
   const [couponCode, setCouponCode] = useState("");
   const [couponStatus, setCouponStatus] = useState(null);
@@ -107,8 +113,49 @@ export default function CheckoutScreen({ navigation }) {
     return null;
   }
 
+  // Google Places Autocomplete — lets the customer type a few keywords
+  // ("MG road", "forum mall") and pick from real matching addresses,
+  // instead of only relying on GPS or dropping a pin on a map.
+  function handleAddressChange(text) {
+    setAddress(text);
+    setSuggestions([]);
+    if (autocompleteTimer.current) clearTimeout(autocompleteTimer.current);
+    if (!GOOGLE_MAPS_API_KEY || text.trim().length < 3) return;
+
+    autocompleteTimer.current = setTimeout(async () => {
+      setSearchingAddress(true);
+      try {
+        const res = await fetch(
+          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&key=${GOOGLE_MAPS_API_KEY}`
+        );
+        const data = await res.json();
+        if (data.status === "OK") setSuggestions(data.predictions || []);
+      } catch (err) {
+        console.error("Address search failed:", err);
+      } finally {
+        setSearchingAddress(false);
+      }
+    }, 400);
+  }
+
+  async function selectSuggestion(prediction) {
+    setAddress(prediction.description);
+    setSuggestions([]);
+    try {
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.place_id}&fields=geometry,formatted_address&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await res.json();
+      const loc = data.result?.geometry?.location;
+      if (loc) setCoords({ latitude: loc.lat, longitude: loc.lng });
+    } catch (err) {
+      console.error("Place details failed:", err);
+    }
+  }
+
   function useMyLocation() {
     setLocating(true);
+    setSuggestions([]);
     Geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -183,7 +230,6 @@ export default function CheckoutScreen({ navigation }) {
         return;
       }
 
-      // ONLINE — open Razorpay's native checkout
       const rp = await api.createRazorpayOrder(order.id);
       const rpResult = await RazorpayCheckout.open({
         key: rp.keyId,
@@ -206,8 +252,6 @@ export default function CheckoutScreen({ navigation }) {
         { text: "Track order", onPress: () => navigation.replace("OrderDetail", { orderId: order.id }) },
       ]);
     } catch (err) {
-      // RazorpayCheckout.open() rejects with { code, description } on cancel/failure,
-      // rather than a plain Error — handle both shapes.
       const message = err?.description || err?.message || "Something went wrong.";
       Alert.alert("Couldn't complete order", message);
     } finally {
@@ -216,136 +260,168 @@ export default function CheckoutScreen({ navigation }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Checkout</Text>
 
-      <Text style={styles.label}>Delivery address</Text>
-      <TextInput
-        style={[styles.input, { height: 70 }]} value={address} onChangeText={setAddress}
-        multiline placeholder="Flat / street / area / city"
-      />
-      <TouchableOpacity onPress={useMyLocation} disabled={locating}>
-        <Text style={styles.locationLink}>
-          {locating ? "Getting location…" : coords ? "✓ Location captured" : "📍 Use my current location"}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => setShowMap((s) => !s)}>
-        <Text style={styles.locationLink}>🗺️ {showMap ? "Hide map" : "Pick on map"}</Text>
-      </TouchableOpacity>
-      {showMap && (
-        <LocationPickerMap
-          initialLat={coords?.latitude} initialLng={coords?.longitude}
-          onLocationSelected={async (lat, lng) => {
-            setCoords({ latitude: lat, longitude: lng });
-            const addr = await reverseGeocode(lat, lng);
-            if (addr) setAddress(addr);
-          }}
+      {/* Address card */}
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>Delivery address</Text>
+        <TextInput
+          style={[styles.input, { height: 64 }]} value={address} onChangeText={handleAddressChange}
+          multiline placeholder="Search by area, landmark, or type full address"
         />
-      )}
+        {searchingAddress && <ActivityIndicator size="small" color={colors.saffron2} style={{ marginTop: 8 }} />}
+        {suggestions.length > 0 && (
+          <View style={styles.suggestionsBox}>
+            {suggestions.slice(0, 5).map((s) => (
+              <TouchableOpacity key={s.place_id} style={styles.suggestionRow} onPress={() => selectSuggestion(s)}>
+                <Text style={styles.suggestionText} numberOfLines={2}>📍 {s.description}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+        <View style={styles.locationActions}>
+          <TouchableOpacity onPress={useMyLocation} disabled={locating} style={styles.locationChip}>
+            <Text style={styles.locationChipText}>
+              {locating ? "Getting location…" : coords ? "✓ Location captured" : "📍 Use current location"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowMap((s) => !s)} style={styles.locationChip}>
+            <Text style={styles.locationChipText}>🗺️ {showMap ? "Hide map" : "Pick on map"}</Text>
+          </TouchableOpacity>
+        </View>
+        {showMap && (
+          <View style={{ marginTop: spacing.sm }}>
+            <LocationPickerMap
+              initialLat={coords?.latitude} initialLng={coords?.longitude}
+              onLocationSelected={async (lat, lng) => {
+                setCoords({ latitude: lat, longitude: lng });
+                const addr = await reverseGeocode(lat, lng);
+                if (addr) setAddress(addr);
+              }}
+            />
+          </View>
+        )}
+        <Text style={[styles.cardLabel, { marginTop: spacing.md }]}>Contact phone</Text>
+        <TextInput style={styles.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="9876543210" />
+      </View>
 
-      <Text style={styles.label}>Contact phone</Text>
-      <TextInput style={styles.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="9876543210" />
-
-      <View style={{ marginBottom: spacing.sm }}>
-        <Text style={styles.label}>Delivery date</Text>
+      {/* Date & time card */}
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>Delivery date</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {DATE_SLOTS.map((slot) => (
             <TouchableOpacity
               key={slot.date.toISOString()}
               onPress={() => setEventDate(slot.date)}
-              style={[styles.timeSlot, eventDate?.toDateString() === slot.date.toDateString() && styles.timeSlotActive]}
+              style={[styles.pill, eventDate?.toDateString() === slot.date.toDateString() && styles.pillActive]}
             >
-              <Text style={[styles.timeSlotText, eventDate?.toDateString() === slot.date.toDateString() && styles.timeSlotTextActive]}>
+              <Text style={[styles.pillText, eventDate?.toDateString() === slot.date.toDateString() && styles.pillTextActive]}>
                 {slot.label}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        {eventDate && (
+          <>
+            <Text style={[styles.cardLabel, { marginTop: spacing.md }]}>Delivery time</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {TIME_SLOTS.map((slot) => (
+                <TouchableOpacity
+                  key={slot}
+                  onPress={() => setEventTime(slot)}
+                  style={[styles.pill, eventTime === slot && styles.pillActive]}
+                >
+                  <Text style={[styles.pillText, eventTime === slot && styles.pillTextActive]}>{slot}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            {eventTime && (() => {
+              const chosen = combineDateTime(eventDate, eventTime);
+              const minAllowed = new Date(Date.now() + MIN_LEAD_HOURS * 60 * 60 * 1000);
+              if (chosen < minAllowed) {
+                return (
+                  <Text style={[styles.timeConfirm, { color: colors.chili, backgroundColor: "rgba(193,68,59,0.1)" }]}>
+                    Orders must be placed at least {MIN_LEAD_HOURS}h before delivery — pick a later slot
+                  </Text>
+                );
+              }
+              return <Text style={styles.timeConfirm}>Delivered at {eventTime}</Text>;
+            })()}
+          </>
+        )}
+
+        <Text style={[styles.cardLabel, { marginTop: spacing.md }]}>Guest count (optional)</Text>
+        <TextInput style={styles.input} value={guestCount} onChangeText={setGuestCount} keyboardType="number-pad" placeholder="e.g. 20" />
       </View>
 
-      <Text style={styles.label}>Guest count</Text>
-      <TextInput
-        style={[styles.input, { marginBottom: spacing.sm }]} value={guestCount} onChangeText={setGuestCount}
-        keyboardType="number-pad" placeholder="e.g. 20"
-      />
+      {/* Notes & coupon card */}
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>Notes (optional)</Text>
+        <TextInput style={styles.input} value={notes} onChangeText={setNotes} placeholder="Any special instructions" />
 
-      {eventDate && (
-        <>
-          <Text style={styles.label}>Delivery time</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.sm }}>
-            {TIME_SLOTS.map((slot) => (
-              <TouchableOpacity
-                key={slot}
-                onPress={() => setEventTime(slot)}
-                style={[styles.timeSlot, eventTime === slot && styles.timeSlotActive]}
-              >
-                <Text style={[styles.timeSlotText, eventTime === slot && styles.timeSlotTextActive]}>{slot}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          {eventTime && (() => {
-            const chosen = combineDateTime(eventDate, eventTime);
-            const minAllowed = new Date(Date.now() + MIN_LEAD_HOURS * 60 * 60 * 1000);
-            if (chosen < minAllowed) {
-              return (
-                <Text style={[styles.timeConfirm, { color: colors.chili, backgroundColor: "rgba(193,68,59,0.1)" }]}>
-                  Orders must be placed at least {MIN_LEAD_HOURS}h before delivery — pick a later slot
-                </Text>
-              );
-            }
-            return <Text style={styles.timeConfirm}>Delivered at {eventTime}</Text>;
-          })()}
-        </>
-      )}
-
-      <Text style={styles.label}>Notes (optional)</Text>
-      <TextInput style={styles.input} value={notes} onChangeText={setNotes} placeholder="Any special instructions" />
-
-      <Text style={styles.label}>Coupon code</Text>
-      <View style={styles.couponRow}>
-        <TextInput
-          style={[styles.input, { flex: 1, marginRight: spacing.sm }]}
-          value={couponCode}
-          onChangeText={(t) => { setCouponCode(t.toUpperCase()); setCouponStatus(null); }}
-          placeholder="e.g. WELCOME10"
-          autoCapitalize="characters"
-        />
-        <TouchableOpacity style={styles.applyBtn} onPress={applyCoupon} disabled={checkingCoupon || !couponCode.trim()}>
-          <Text style={styles.applyBtnText}>{checkingCoupon ? "…" : "Apply"}</Text>
-        </TouchableOpacity>
+        <Text style={[styles.cardLabel, { marginTop: spacing.md }]}>Coupon code</Text>
+        <View style={styles.couponRow}>
+          <TextInput
+            style={[styles.input, { flex: 1, marginRight: spacing.sm }]}
+            value={couponCode}
+            onChangeText={(t) => { setCouponCode(t.toUpperCase()); setCouponStatus(null); }}
+            placeholder="e.g. WELCOME10"
+            autoCapitalize="characters"
+          />
+          <TouchableOpacity style={styles.applyBtn} onPress={applyCoupon} disabled={checkingCoupon || !couponCode.trim()}>
+            <Text style={styles.applyBtnText}>{checkingCoupon ? "…" : "Apply"}</Text>
+          </TouchableOpacity>
+        </View>
+        {couponStatus?.error && <Text style={styles.couponError}>{couponStatus.error}</Text>}
+        {couponStatus?.discountAmount > 0 && (
+          <Text style={styles.couponSuccess}>✓ ₹{couponStatus.discountAmount.toFixed(0)} discount applied</Text>
+        )}
       </View>
-      {couponStatus?.error && <Text style={styles.couponError}>{couponStatus.error}</Text>}
-      {couponStatus?.discountAmount > 0 && (
-        <Text style={styles.couponSuccess}>✓ ₹{couponStatus.discountAmount.toFixed(0)} discount applied</Text>
-      )}
 
-      <Text style={styles.label}>Payment method</Text>
-      <View style={styles.paymentRow}>
-        <TouchableOpacity
-          onPress={() => setPaymentMethod("ONLINE")}
-          style={[styles.paymentBtn, paymentMethod === "ONLINE" && styles.paymentBtnActive]}
-        >
-          <Text style={[styles.paymentBtnText, paymentMethod === "ONLINE" && styles.paymentBtnTextActive]}>Pay online</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setPaymentMethod("COD")}
-          disabled={settings && !settings.codEnabled}
-          style={[styles.paymentBtn, paymentMethod === "COD" && styles.paymentBtnActive, settings && !settings.codEnabled && { opacity: 0.4 }]}
-        >
-          <Text style={[styles.paymentBtnText, paymentMethod === "COD" && styles.paymentBtnTextActive]}>Cash on delivery</Text>
-        </TouchableOpacity>
+      {/* Payment card */}
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>Payment method</Text>
+        <View style={styles.paymentRow}>
+          <TouchableOpacity
+            onPress={() => setPaymentMethod("ONLINE")}
+            style={[styles.paymentBtn, paymentMethod === "ONLINE" && styles.paymentBtnActive]}
+          >
+            <Text style={[styles.paymentBtnText, paymentMethod === "ONLINE" && styles.paymentBtnTextActive]}>Pay online</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setPaymentMethod("COD")}
+            disabled={settings && !settings.codEnabled}
+            style={[styles.paymentBtn, paymentMethod === "COD" && styles.paymentBtnActive, settings && !settings.codEnabled && { opacity: 0.4 }]}
+          >
+            <Text style={[styles.paymentBtnText, paymentMethod === "COD" && styles.paymentBtnTextActive]}>Cash on delivery</Text>
+          </TouchableOpacity>
+        </View>
+        {settings && !settings.codEnabled && (
+          <Text style={styles.hint}>Cash on delivery isn't available right now.</Text>
+        )}
       </View>
-      {settings && !settings.codEnabled && (
-        <Text style={styles.hint}>Cash on delivery isn't available right now.</Text>
-      )}
 
-      <View style={styles.summary}>
+      {/* Bill summary card */}
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>Bill details</Text>
         {items.map((line) => (
           <View key={line.key} style={styles.summaryRow}>
-            <Text style={styles.summaryItem}>{line.quantity}× {line.menuItem.name}</Text>
+            <View style={styles.summaryItemRow}>
+              {line.menuItem.imageUrl ? (
+                <Image source={{ uri: resolveImageUrl(line.menuItem.imageUrl) }} style={styles.summaryThumb} />
+              ) : (
+                <View style={[styles.summaryThumb, { backgroundColor: colors.line }]} />
+              )}
+              <Text style={styles.summaryItem}>
+                {line.menuItem.soldByWeight ? `${line.quantity}g` : `${line.quantity}×`} {line.menuItem.name}
+              </Text>
+            </View>
             <Text style={styles.summaryPrice}>₹{(line.unitPrice * line.quantity).toFixed(0)}</Text>
           </View>
         ))}
+        <View style={styles.divider} />
         {discount > 0 && (
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryItem, { color: colors.basil }]}>Discount</Text>
@@ -360,7 +436,8 @@ export default function CheckoutScreen({ navigation }) {
           <Text style={[styles.summaryItem, { color: colors.basil }]}>Delivery</Text>
           <Text style={[styles.summaryPrice, { color: colors.basil }]}>Free</Text>
         </View>
-        <View style={[styles.summaryRow, { marginTop: spacing.sm, borderTopWidth: 1, borderColor: colors.line, paddingTop: spacing.sm }]}>
+        <View style={styles.divider} />
+        <View style={styles.summaryRow}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalValue}>₹{finalTotal.toFixed(0)}</Text>
         </View>
@@ -382,38 +459,48 @@ export default function CheckoutScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, backgroundColor: colors.paper, flexGrow: 1 },
-  title: { fontSize: 22, fontWeight: "700", color: colors.ink, marginBottom: spacing.lg },
-  label: { fontSize: 12, color: colors.inkFaint, marginBottom: 4, marginTop: spacing.sm, textTransform: "uppercase" },
-  input: { borderWidth: 1, borderColor: colors.line, borderRadius: 4, padding: 10, backgroundColor: colors.white, fontSize: 15, justifyContent: "center", color: colors.ink },
-  locationLink: { color: colors.saffron2, fontSize: 13, marginTop: 6 },
-  timeSlot: {
-    borderWidth: 1, borderColor: colors.line, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 14,
+  container: { padding: spacing.md, backgroundColor: colors.paper, flexGrow: 1 },
+  title: { fontSize: 22, fontWeight: "700", color: colors.ink, marginBottom: spacing.md },
+  card: {
+    backgroundColor: colors.white, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md,
+    borderWidth: 1, borderColor: colors.line,
+  },
+  cardLabel: { fontSize: 11, color: colors.inkFaint, marginBottom: 6, textTransform: "uppercase", fontWeight: "600" },
+  input: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, backgroundColor: colors.white, fontSize: 15, justifyContent: "center", color: colors.ink },
+  suggestionsBox: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, marginTop: 6, overflow: "hidden" },
+  suggestionRow: { padding: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
+  suggestionText: { fontSize: 13, color: colors.ink },
+  locationActions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+  locationChip: { backgroundColor: "rgba(232,163,61,0.1)", borderRadius: 20, paddingVertical: 7, paddingHorizontal: 12 },
+  locationChipText: { color: colors.saffron2, fontSize: 12, fontWeight: "500" },
+  pill: {
+    borderWidth: 1, borderColor: colors.line, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14,
     marginRight: 8, backgroundColor: colors.white,
   },
-  timeSlotActive: { borderColor: colors.saffron2, borderWidth: 1.5, backgroundColor: "rgba(232,163,61,0.12)" },
-  timeSlotText: { fontSize: 13, color: colors.ink },
-  timeSlotTextActive: { color: colors.saffron2, fontWeight: "700" },
-  timeConfirm: { fontSize: 12, color: colors.saffron2, backgroundColor: "rgba(232,163,61,0.1)", padding: 8, borderRadius: 6, marginBottom: spacing.sm, textAlign: "center" },
-  row: { flexDirection: "row" },
+  pillActive: { borderColor: colors.saffron2, borderWidth: 1.5, backgroundColor: "rgba(232,163,61,0.12)" },
+  pillText: { fontSize: 13, color: colors.ink },
+  pillTextActive: { color: colors.saffron2, fontWeight: "700" },
+  timeConfirm: { fontSize: 12, color: colors.saffron2, backgroundColor: "rgba(232,163,61,0.1)", padding: 8, borderRadius: 8, marginTop: 10, textAlign: "center" },
   couponRow: { flexDirection: "row", alignItems: "center" },
-  applyBtn: { borderWidth: 1, borderColor: colors.line, borderRadius: 4, paddingHorizontal: 14, paddingVertical: 10 },
+  applyBtn: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12 },
   applyBtnText: { fontSize: 13, color: colors.ink },
-  couponError: { color: colors.chili, fontSize: 12, marginTop: 4 },
-  couponSuccess: { color: colors.basil, fontSize: 12, marginTop: 4 },
-  paymentRow: { flexDirection: "row" },
-  paymentBtn: { flex: 1, borderWidth: 1, borderColor: colors.line, borderRadius: 4, paddingVertical: 10, alignItems: "center", marginRight: spacing.sm },
+  couponError: { color: colors.chili, fontSize: 12, marginTop: 6 },
+  couponSuccess: { color: colors.basil, fontSize: 12, marginTop: 6 },
+  paymentRow: { flexDirection: "row", gap: spacing.sm },
+  paymentBtn: { flex: 1, borderWidth: 1, borderColor: colors.line, borderRadius: 8, paddingVertical: 12, alignItems: "center" },
   paymentBtnActive: { backgroundColor: colors.charcoal, borderColor: colors.charcoal },
   paymentBtnText: { fontSize: 13, color: colors.ink },
   paymentBtnTextActive: { color: colors.paper },
-  hint: { fontSize: 11, color: colors.inkFaint, marginTop: 4 },
-  summary: { backgroundColor: colors.white, borderRadius: 6, padding: spacing.md, marginTop: spacing.lg, borderWidth: 1, borderColor: colors.line },
-  summaryRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
-  summaryItem: { fontSize: 14, color: colors.ink },
+  hint: { fontSize: 11, color: colors.inkFaint, marginTop: 6 },
+  summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  summaryItemRow: { flexDirection: "row", alignItems: "center", flex: 1, marginRight: 8 },
+  summaryThumb: { width: 32, height: 32, borderRadius: 6, marginRight: 8 },
+  summaryItem: { fontSize: 14, color: colors.ink, flexShrink: 1 },
   summaryPrice: { fontSize: 14, color: colors.ink },
-  totalLabel: { fontSize: 15, fontWeight: "700", color: colors.ink },
-  totalValue: { fontSize: 15, fontWeight: "700", color: colors.ink },
-  minOrderWarning: { color: colors.chili, fontSize: 12, marginTop: spacing.sm },
-  button: { backgroundColor: colors.charcoal, borderRadius: 4, padding: 14, alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.xl },
+  divider: { height: 1, backgroundColor: colors.line, marginVertical: 8 },
+  totalLabel: { fontSize: 16, fontWeight: "700", color: colors.ink },
+  totalValue: { fontSize: 16, fontWeight: "700", color: colors.ink },
+  minOrderWarning: { color: colors.chili, fontSize: 12, marginBottom: spacing.sm },
+  button: { backgroundColor: colors.charcoal, borderRadius: 10, padding: 16, alignItems: "center", marginTop: spacing.sm, marginBottom: spacing.xl },
   buttonText: { color: colors.paper, fontWeight: "600", fontSize: 15 },
 });
