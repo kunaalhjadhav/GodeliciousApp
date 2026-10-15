@@ -150,7 +150,11 @@ export default function BookingScreen({ route, navigation }) {
   }, 0);
   const subtotal = staffCost + addonsCost;
   const discount = couponStatus?.discountAmount || 0;
-  const finalTotal = Math.max(0, subtotal - discount);
+  const cartValue = Math.max(0, subtotal - discount);
+  // Delivery fee (0 = free), waived at or above the free-delivery amount - same rule as the server
+  const deliveryFee = settings && settings.deliveryFee > 0 && !(settings.freeDeliveryAbove > 0 && subtotal >= settings.freeDeliveryAbove)
+    ? settings.deliveryFee : 0;
+  const finalTotal = cartValue + deliveryFee;
   // Informational only — extracts the GST portion assumed already included in
   // the price, rather than adding a new charge. See note to the developer:
   // confirm with your accountant whether GST should be added on top instead,
@@ -158,7 +162,7 @@ export default function BookingScreen({ route, navigation }) {
   // implications — this was deliberately NOT wired into backend pricing.
   const GST_RATE = 0.05;
   const gstAmount = finalTotal - finalTotal / (1 + GST_RATE);
-  const belowMinimum = settings && finalTotal < settings.minOrderAmount && finalTotal > 0;
+  const belowMinimum = settings && cartValue < settings.minOrderAmount && cartValue > 0;
   const dateTimeInvalid = !eventDate || !eventTime || combineDateTime(eventDate, eventTime) < new Date(Date.now() + MIN_LEAD_HOURS * 60 * 60 * 1000);
 
   async function applyCoupon() {
@@ -424,8 +428,8 @@ export default function BookingScreen({ route, navigation }) {
           <Text style={styles.summaryPrice}>₹{gstAmount.toFixed(0)}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={[styles.summaryItem, { color: colors.basil }]}>Delivery</Text>
-          <Text style={[styles.summaryPrice, { color: colors.basil }]}>Free</Text>
+          <Text style={[styles.summaryItem, deliveryFee === 0 && { color: colors.basil }]}>Delivery</Text>
+          <Text style={[styles.summaryPrice, deliveryFee === 0 && { color: colors.basil }]}>{deliveryFee === 0 ? "Free" : `₹${deliveryFee}`}</Text>
         </View>
         <View style={[styles.summaryRow, { marginTop: spacing.sm, borderTopWidth: 1, borderColor: colors.line, paddingTop: spacing.sm }]}>
           <Text style={styles.totalLabel}>Total</Text>
@@ -435,7 +439,7 @@ export default function BookingScreen({ route, navigation }) {
 
       {belowMinimum && (
         <Text style={styles.minOrderWarning}>
-          Minimum order amount is ₹{settings.minOrderAmount}. Add ₹{(settings.minOrderAmount - finalTotal).toFixed(0)} more to continue.
+          Minimum order amount is ₹{settings.minOrderAmount}. Add ₹{(settings.minOrderAmount - cartValue).toFixed(0)} more to continue.
         </Text>
       )}
 

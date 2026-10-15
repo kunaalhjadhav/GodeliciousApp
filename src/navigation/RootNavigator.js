@@ -23,6 +23,14 @@ import BookingScreen from "../screens/BookingScreen";
 import ItemDetailScreen from "../screens/ItemDetailScreen";
 import BrandsScreen from "../screens/BrandsScreen";
 import BrandDetailScreen from "../screens/BrandDetailScreen";
+import VenuesScreen from "../screens/VenuesScreen";
+import VenueDetailScreen from "../screens/VenueDetailScreen";
+import MyVenueRequestsScreen from "../screens/MyVenueRequestsScreen";
+import FavouritesScreen from "../screens/FavouritesScreen";
+import PartySizeScreen from "../screens/PartySizeScreen";
+import SubscribeScreen from "../screens/SubscribeScreen";
+import SavedAddressesScreen from "../screens/SavedAddressesScreen";
+import { useLang } from "../i18n";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -40,6 +48,16 @@ function MenuStack() {
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: "Notifications" }} />
       <Stack.Screen name="Booking" component={BookingScreen} options={{ title: "Book this package" }} />
       <Stack.Screen name="ItemDetail" component={ItemDetailScreen} options={{ title: "Item details" }} />
+      <Stack.Screen name="Venues" component={VenuesScreen} options={{ title: "Book a venue" }} />
+      <Stack.Screen
+        name="VenueDetail" component={VenueDetailScreen}
+        options={({ route }) => ({ title: route.params?.venueName || "Venue" })}
+      />
+      <Stack.Screen name="MyVenueRequests" component={MyVenueRequestsScreen} options={{ title: "My venue requests" }} />
+      <Stack.Screen name="Favourites" component={FavouritesScreen} options={{ title: "Favourites" }} />
+      <Stack.Screen name="PartySize" component={PartySizeScreen} options={{ title: "Plan my party" }} />
+      <Stack.Screen name="Subscribe" component={SubscribeScreen} options={{ title: "Weekly meal box" }} />
+      <Stack.Screen name="SavedAddresses" component={SavedAddressesScreen} options={{ title: "Saved addresses" }} />
       <Stack.Screen name="Brands" component={BrandsScreen} options={{ title: "Brand Partners" }} />
       <Stack.Screen
         name="BrandDetail" component={BrandDetailScreen}
@@ -59,6 +77,7 @@ function OrdersStack() {
 }
 
 function MainTabs() {
+  const { t } = useLang();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -69,22 +88,22 @@ function MainTabs() {
     >
       <Tab.Screen
         name="MenuTab" component={MenuStack}
-        options={{ title: "Menu", tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🍽️</Text> }}
+        options={{ title: t("tab_menu"), tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🍽️</Text> }}
       />
       <Tab.Screen
         name="OrdersTab" component={OrdersStack}
-        options={{ title: "Orders", tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📦</Text> }}
+        options={{ title: t("tab_orders"), tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📦</Text> }}
       />
       <Tab.Screen
         name="ChatTab" component={ChatScreen}
         options={{
-          title: "Chat", headerShown: true, headerStyle: { backgroundColor: colors.charcoal }, headerTintColor: colors.paper, headerTitle: "Chat with us",
+          title: t("tab_chat"), headerShown: true, headerStyle: { backgroundColor: colors.charcoal }, headerTintColor: colors.paper, headerTitle: "Chat with us",
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>💬</Text>,
         }}
       />
       <Tab.Screen
         name="ProfileTab" component={ProfileScreen}
-        options={{ title: "Profile", tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>👤</Text> }}
+        options={{ title: t("tab_profile"), tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>👤</Text> }}
       />
     </Tab.Navigator>
   );

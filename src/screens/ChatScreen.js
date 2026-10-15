@@ -6,9 +6,14 @@ import { useFocusEffect } from "@react-navigation/native";
 import { api } from "../api/client";
 import { colors, spacing } from "../theme";
 
-export default function ChatScreen() {
+export default function ChatScreen({ route }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
+
+  // Opened from an order or the party planner: start the message for the customer
+  useEffect(() => {
+    if (route?.params?.prefill) setText(route.params.prefill);
+  }, [route?.params?.prefill]);
   const listRef = useRef(null);
 
   const load = useCallback(() => {

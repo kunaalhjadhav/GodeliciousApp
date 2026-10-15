@@ -74,6 +74,7 @@ export const api = {
   sendMessage: (body) => request("/api/chat/my", { method: "POST", body: { body } }),
 
   // OTP login
+  checkPhone: (phone) => request("/api/auth/otp/check-phone", { method: "POST", body: { phone } }),
   requestOtp: (phone) => request("/api/auth/otp/request", { method: "POST", body: { phone } }),
   verifyOtp: (phone, code, name) =>
     request("/api/auth/otp/verify", { method: "POST", body: { phone, code, name } }),
@@ -94,6 +95,57 @@ export const api = {
   // Order types (the 3 home-screen package cards) and add-ons for booking
   listOrderTypes: () => request("/api/order-types"),
   listAddons: () => request("/api/addons"),
+
+  // Venue booking (venue partners' halls)
+  listVenues: (params = {}) => {
+    const qs = Object.entries(params).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+    return request(`/api/venues${qs ? `?${qs}` : ""}`);
+  },
+  getVenue: (id) => request(`/api/venues/${id}`),
+  requestVenue: (id, payload) => request(`/api/venues/${id}/bookings`, { method: "POST", body: payload }),
+  myVenueRequests: () => request("/api/venues/bookings/my"),
+  cancelVenueRequest: (id) => request(`/api/venues/bookings/${id}/cancel`, { method: "PATCH" }),
+
+  // Push notifications
+  registerDevice: (token, platform) =>
+    request("/api/devices/register", { method: "POST", body: { token, platform } }),
+
+  // Home feed, bestsellers, item reviews
+  home: () => request("/api/home"),
+  bestsellers: (exclude = []) => request(`/api/menu/bestsellers?limit=6${exclude.length ? `&exclude=${exclude.join(",")}` : ""}`),
+  itemReviews: (id) => request(`/api/menu/${id}/reviews`),
+
+  // Favourites
+  myFavorites: () => request("/api/favorites"),
+  myFavoriteIds: () => request("/api/favorites/ids"),
+  addFavorite: (menuItemId) => request("/api/favorites", { method: "POST", body: { menuItemId } }),
+  removeFavorite: (menuItemId) => request(`/api/favorites/${menuItemId}`, { method: "DELETE" }),
+  setFavoriteNotify: (menuItemId, notify) =>
+    request(`/api/favorites/${menuItemId}/notify`, { method: "PATCH", body: { notify } }),
+
+  // Saved addresses
+  myAddresses: () => request("/api/addresses"),
+  addAddress: (payload) => request("/api/addresses", { method: "POST", body: payload }),
+  updateAddress: (id, payload) => request(`/api/addresses/${id}`, { method: "PATCH", body: payload }),
+  deleteAddress: (id) => request(`/api/addresses/${id}`, { method: "DELETE" }),
+
+  // Rewards and referrals
+  myLoyalty: () => request("/api/loyalty/me"),
+  applyReferral: (code) => request("/api/loyalty/apply-referral", { method: "POST", body: { code } }),
+
+  // Party planner
+  planParty: (guests, foodStyle, occasion) =>
+    request("/api/planner/suggest", { method: "POST", body: { guests, foodStyle, occasion } }),
+
+  // Weekly meal box
+  subscriptionPlans: () => request("/api/subscriptions/plans"),
+  mySubscriptions: () => request("/api/subscriptions/my"),
+  createSubscription: (payload) => request("/api/subscriptions", { method: "POST", body: payload }),
+  updateSubscription: (id, payload) => request(`/api/subscriptions/${id}`, { method: "PATCH", body: payload }),
+  skipSubscriptionDay: (id, date) => request(`/api/subscriptions/${id}/skip`, { method: "POST", body: { date } }),
+  unskipSubscriptionDay: (id, date) => request(`/api/subscriptions/${id}/skip/${date}`, { method: "DELETE" }),
+
+  unregisterDevice: (token) => request("/api/devices/register", { method: "DELETE", body: { token } }),
 
   // Brand partner browsing
   listBrandsPublic: () => request("/api/brands/public"),

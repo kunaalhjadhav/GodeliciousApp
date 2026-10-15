@@ -45,7 +45,7 @@ export default function OrdersScreen({ navigation }) {
             <Text style={styles.date}>{new Date(order.createdAt).toLocaleDateString()}</Text>
           </View>
           <Text style={styles.itemsSummary}>
-            {order.items.map((i) => `${i.quantity}× ${i.menuItem.name}`).join(", ")}
+            {order.items.map((i) => `${i.menuItem.soldByWeight ? `${i.quantity}g` : `${i.quantity}×`} ${i.menuItem.name}`).join(", ")}
           </Text>
           <Text style={styles.total}>₹{order.totalAmount.toFixed(0)}</Text>
         </TouchableOpacity>

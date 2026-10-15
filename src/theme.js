@@ -1,8 +1,8 @@
 // Shared visual tokens — kept close to the admin dashboard's identity
 // (charcoal + saffron) so the brand feels the same across app and dashboard.
 export const colors = {
-  charcoal: "#01882c",
-  paper: "#cfd3d6",
+  charcoal: "#1C1B19",
+  paper: "#F7F5F1",
   saffron: "#E8A33D",
   saffron2: "#C97F1F",
   basil: "#2F5233",

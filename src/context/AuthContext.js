@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api, setToken, clearToken, getToken } from "../api/client";
+import { registerForPush } from "../push";
 
 const AuthContext = createContext(null);
 
@@ -24,6 +25,12 @@ export function AuthProvider({ children }) {
       }
     })();
   }, []);
+
+  // Once signed in, register this phone for push notifications (no-op until
+  // Firebase is set up in the Android project - see PUSH_SETUP.md).
+  useEffect(() => {
+    if (user) registerForPush(api.registerDevice);
+  }, [user]);
 
   async function login(email, password) {
     const data = await api.login(email, password);
