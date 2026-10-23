@@ -7,7 +7,7 @@ import { useCart } from "../context/CartContext";
 import { useFavorites } from "../context/FavoritesContext";
 import { useLang } from "../i18n";
 import { colors, spacing } from "../theme";
-import { resolveImageUrl, rupees, weightLabel } from "../utils";
+import { resolveImageUrl, rupees, weightLabel, mealBoxCount } from "../utils";
 import ComboPickerModal from "../components/ComboPickerModal";
 
 const PRESETS = [1000, 1500, 2000];
@@ -22,7 +22,8 @@ export default function ItemDetailScreen({ route, navigation }) {
   const [grams, setGrams] = useState(1000);
   const [custom, setCustom] = useState(false);
   const [qty, setQty] = useState(1);
-  const { addItem } = useCart();
+  const { addItem, items: cartItems } = useCart();
+  const [boxMin, setBoxMin] = useState(10); // minimum meals per order (set by the shop)
   const { isFavorite, toggle } = useFavorites();
 
   const minG = item?.minOrderGrams > 0 ? item.minOrderGrams : 250;
@@ -32,7 +33,15 @@ export default function ItemDetailScreen({ route, navigation }) {
     api.getMenuItem(itemId).then((d) => { setItem(d.item); if (d.item?.soldByWeight) setGrams(Math.max(250, d.item.minOrderGrams || 250)); })
       .catch((err) => Alert.alert("Couldn't load item", err.message)).finally(() => setLoading(false));
     api.itemReviews(itemId).then((d) => setReviews(d.reviews || [])).catch(() => {});
+    api.getSettings().then((d) => setBoxMin(d.settings?.mealBoxMinQty || 10)).catch(() => {});
   }, [itemId]);
+
+  // For a meal box, start the quantity at what is still needed to reach the minimum
+  const inCartBoxes = mealBoxCount(cartItems);
+  useEffect(() => {
+    if (item?.isMealBox) setQty(Math.max(1, boxMin - inCartBoxes));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.id, boxMin]);
 
   useEffect(() => {
     if (!item) return;
@@ -100,6 +109,27 @@ export default function ItemDetailScreen({ route, navigation }) {
 
           {!!item.description && <Text style={styles.description}>{item.description}</Text>}
 
+          {item.isMealBox && (
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={styles.sectionTitle}>What's in this box</Text>
+              {(item.mealBoxItems || []).map((m) => (
+                <View key={m.id} style={styles.dishCard}>
+                  {m.item?.imageUrl ? (
+                    <Image source={{ uri: resolveImageUrl(m.item.imageUrl) }} style={styles.dishImage} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.dishImage, { backgroundColor: "#E6D8B9" }]} />
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.dishName} numberOfLines={2}>{m.item?.name}</Text>
+                    {!!m.note && <Text style={styles.dishNote}>{m.note}</Text>}
+                  </View>
+                  <View style={[styles.vegDot, { backgroundColor: m.item?.isVeg ? colors.basil : colors.chili, marginRight: 0 }]} />
+                </View>
+              ))}
+              {(item.mealBoxItems || []).length === 0 && <Text style={styles.hint}>The dishes in this box will be listed here.</Text>}
+            </View>
+          )}
+
           <View style={styles.chips}>
             {item.soldByWeight && <View style={styles.chip}><Text style={styles.chipText}>Sold by weight</Text></View>}
             <View style={styles.chip}><Text style={styles.chipText}>Order 15 hrs ahead</Text></View>
@@ -109,9 +139,18 @@ export default function ItemDetailScreen({ route, navigation }) {
               </View>
             )}
             {item.isCombo && <View style={styles.chip}><Text style={styles.chipText}>Combo</Text></View>}
+            {item.isMealBox && <View style={styles.chip}><Text style={styles.chipText}>Minimum {boxMin} meals per order</Text></View>}
           </View>
 
-          <Text style={styles.price}>₹{item.price}{item.soldByWeight ? " / kg" : ""}</Text>
+          <Text style={styles.price}>
+            ₹{item.price}{item.soldByWeight ? " / kg" : item.isMealBox ? " per box" : ""}
+            <Text style={styles.gstNote}>  + GST</Text>
+          </Text>
+          {item.isMealBox && (
+            <Text style={[styles.hint, { marginHorizontal: 0, marginBottom: spacing.sm }]}>
+              You can mix different meal boxes to reach {boxMin} meals.{inCartBoxes > 0 ? ` You already have ${inCartBoxes} in your cart.` : ""}
+            </Text>
+          )}
 
           {item.soldByWeight ? (
             <View>
@@ -192,7 +231,7 @@ export default function ItemDetailScreen({ route, navigation }) {
 
       <View style={styles.bottom}>
         <View>
-          <Text style={styles.bottomQty}>{item.soldByWeight ? weightLabel(grams) : `${qty} x ${rupees(item.price)}`}</Text>
+          <Text style={styles.bottomQty}>{item.soldByWeight ? weightLabel(grams) : `${qty} x ${rupees(item.price)} + GST`}</Text>
           <Text style={styles.bottomTotal}>{rupees(total)}</Text>
         </View>
         <TouchableOpacity style={styles.addButton} onPress={handlePrimaryAction}>
@@ -216,6 +255,14 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, color: colors.inkFaint, flexShrink: 1 },
   rating: { fontSize: 14, fontWeight: "700", color: colors.saffron2 },
   description: { fontSize: 14, color: colors.ink, lineHeight: 21, marginTop: spacing.sm },
+  dishCard: {
+    flexDirection: "row", alignItems: "center", backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line,
+    borderRadius: 12, padding: 8, marginBottom: 8,
+  },
+  dishImage: { width: 64, height: 64, borderRadius: 10, marginRight: 12 },
+  dishName: { fontSize: 15, fontWeight: "600", color: colors.ink },
+  dishNote: { fontSize: 12, color: colors.inkFaint, marginTop: 2 },
+  gstNote: { fontSize: 12, fontWeight: "500", color: colors.inkFaint },
   chips: { flexDirection: "row", flexWrap: "wrap", marginTop: spacing.sm },
   chip: { backgroundColor: "#F1EDE2", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5, marginRight: 6, marginBottom: 6 },
   chipText: { fontSize: 12, color: colors.ink },

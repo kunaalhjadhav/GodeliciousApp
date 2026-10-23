@@ -27,7 +27,7 @@ export default function OrderTypesRow({ navigation }) {
       renderItem={({ item: ot }) => (
         <TouchableOpacity
           style={styles.card}
-          onPress={() => navigation.navigate("Booking", { orderTypeId: ot.id })}
+          onPress={() => (/meal\s*box/i.test(ot.name) ? navigation.navigate("MealBoxes") : navigation.navigate("Booking", { orderTypeId: ot.id }))}
         >
           {ot.imageUrl ? (
             <Image source={{ uri: resolveImageUrl(ot.imageUrl) }} style={styles.image} />
@@ -35,7 +35,7 @@ export default function OrderTypesRow({ navigation }) {
             <View style={[styles.image, styles.imagePlaceholder]} />
           )}
           <Text style={styles.name} numberOfLines={1}>{ot.name}</Text>
-          <Text style={styles.cta}>Book →</Text>
+          <Text style={styles.cta}>{/meal\s*box/i.test(ot.name) ? "Choose →" : "Book →"}</Text>
         </TouchableOpacity>
       )}
     />

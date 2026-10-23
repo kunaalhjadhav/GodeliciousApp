@@ -154,9 +154,17 @@ export default function PartySizeScreen({ route, navigation }) {
 
         {plan && plan.lines.length > 0 && (
           <View>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Estimated total (GST included)</Text>
+            <View style={[styles.totalRow, { marginBottom: 2 }]}>
+              <Text style={styles.totalLabel}>Estimated food total</Text>
               <Text style={styles.totalValue}>{rupees(plan.total)}</Text>
+            </View>
+            <View style={[styles.totalRow, { marginBottom: 2 }]}>
+              <Text style={styles.totalLabel}>GST ({plan.gstPercent ?? 5}%)</Text>
+              <Text style={styles.totalValue}>{rupees(plan.gst ?? 0)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Estimated total to pay</Text>
+              <Text style={styles.totalValue}>{rupees(plan.payable ?? plan.total)}</Text>
             </View>
             {short.length > 0 && <Text style={styles.stockWarn}>Some items have limited stock. Ask for a quote for the full amount.</Text>}
             <Text style={styles.note}>Adjust any quantity in the cart. For very large events, ask us for a custom quote.</Text>

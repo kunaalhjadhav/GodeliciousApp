@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import { useCart } from "../context/CartContext";
 import { useLang } from "../i18n";
 import { colors, spacing } from "../theme";
-import { rupees, weightLabel } from "../utils";
+import { rupees, weightLabel, computeTotals, mealBoxCount } from "../utils";
 
 function ProgressRow({ label, status, ratio, done }) {
   return (
@@ -41,14 +41,21 @@ export default function CartScreen({ navigation }) {
   }, [items.length, staff, setStaff]);
 
   const discount = coupon?.discountAmount || 0;
-  const afterDiscount = Math.max(0, totalAmount - discount);
   const minOrder = shop?.minOrderAmount || 0;
   const feeRule = shop && shop.deliveryFee > 0;
   const freeAt = feeRule ? shop.freeDeliveryAbove : 0;
   const deliveryFee = feeRule && !(freeAt > 0 && totalAmount >= freeAt) ? shop.deliveryFee : 0;
-  const finalTotal = afterDiscount + deliveryFee;
-  const gst = finalTotal - finalTotal / 1.05;
+  const gstPercent = shop?.gstPercent ?? 5;
+  const couponMin = shop?.couponMinOrder ?? 0;
+  const boxMin = shop?.mealBoxMinQty ?? 10;
+  // GST is added on top. The minimum order and the coupon minimum look at the cart BEFORE the coupon,
+  // so applying a coupon can never block checkout.
+  const totals = computeTotals({ subtotal: totalAmount, discount, deliveryFee, gstPercent });
+  const finalTotal = totals.total;
+  const gst = totals.gst;
   const gap = freeAt > 0 ? Math.max(0, freeAt - totalAmount) : 0;
+  const boxes = mealBoxCount(items);
+  const boxesShort = boxes > 0 && boxes < boxMin;
 
   // Suggest a bestseller that, added a few times, gets the order to free delivery
   useEffect(() => {
@@ -98,7 +105,7 @@ export default function CartScreen({ navigation }) {
     );
   }
 
-  const belowMin = minOrder > 0 && afterDiscount < minOrder;
+  const belowMin = (minOrder > 0 && totalAmount < minOrder) || boxesShort;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.paper }}>
@@ -111,8 +118,15 @@ export default function CartScreen({ navigation }) {
             {minOrder > 0 && (
               <ProgressRow
                 label={`Minimum order ${rupees(minOrder)}`}
-                status={afterDiscount >= minOrder ? "Reached" : `${rupees(minOrder - afterDiscount)} to go`}
-                ratio={afterDiscount / minOrder} done={afterDiscount >= minOrder}
+                status={totalAmount >= minOrder ? "Reached" : `${rupees(minOrder - totalAmount)} to go`}
+                ratio={totalAmount / minOrder} done={totalAmount >= minOrder}
+              />
+            )}
+            {boxes > 0 && (
+              <ProgressRow
+                label={`${t("meal_boxes")}: minimum ${boxMin} meals`}
+                status={boxes >= boxMin ? `${boxes} meals` : `${boxMin - boxes} more needed`}
+                ratio={boxes / boxMin} done={boxes >= boxMin}
               />
             )}
             {freeAt > 0 && (
@@ -122,7 +136,7 @@ export default function CartScreen({ navigation }) {
                 ratio={totalAmount / freeAt} done={gap === 0}
               />
             )}
-            <Text style={styles.note}>Weight items and other dishes count together towards the minimum.</Text>
+            <Text style={styles.note}>Weight items and other dishes count together towards the minimum. Prices are before GST.</Text>
           </View>
         }
         renderItem={({ item: line }) => (
@@ -209,6 +223,13 @@ export default function CartScreen({ navigation }) {
                   </TouchableOpacity>
                 </View>
               )}
+              {!coupon && couponMin > 0 && (
+                <Text style={styles.couponHint}>
+                  {totalAmount >= couponMin
+                    ? `Coupons work on carts of ${rupees(couponMin)} or more. Your cart qualifies.`
+                    : `Add ${rupees(couponMin - totalAmount)} more to use a coupon (carts of ${rupees(couponMin)} or more).`}
+                </Text>
+              )}
               {!!couponMsg && <Text style={styles.couponErr}>{couponMsg}</Text>}
             </View>
 
@@ -217,7 +238,7 @@ export default function CartScreen({ navigation }) {
               {discount > 0 && (
                 <View style={styles.billRow}><Text style={[styles.billText, { color: colors.basil }]}>Coupon discount</Text><Text style={[styles.billText, { color: colors.basil }]}>−{rupees(discount)}</Text></View>
               )}
-              <View style={styles.billRow}><Text style={styles.billText}>{t("gst_incl")}</Text><Text style={styles.billText}>{rupees(gst)}</Text></View>
+              <View style={styles.billRow}><Text style={styles.billText}>{t("gst")} ({gstPercent}%)</Text><Text style={styles.billText}>{rupees(gst)}</Text></View>
               <View style={styles.billRow}>
                 <Text style={styles.billText}>{t("delivery")}</Text>
                 <Text style={[styles.billText, deliveryFee === 0 && { color: colors.basil, fontWeight: "600" }]}>{deliveryFee === 0 ? t("free") : rupees(deliveryFee)}</Text>
@@ -230,7 +251,8 @@ export default function CartScreen({ navigation }) {
       />
 
       <View style={styles.footer}>
-        {belowMin && <Text style={styles.minWarn}>Add {rupees(minOrder - afterDiscount)} more to reach the minimum order.</Text>}
+        {boxesShort && <Text style={styles.minWarn}>Meal boxes need at least {boxMin} meals per order. Add {boxMin - boxes} more.</Text>}
+        {!boxesShort && minOrder > 0 && totalAmount < minOrder && <Text style={styles.minWarn}>Add {rupees(minOrder - totalAmount)} more to reach the minimum order.</Text>}
         <TouchableOpacity style={[styles.checkoutBtn, belowMin && { opacity: 0.45 }]} disabled={belowMin} onPress={() => navigation.navigate("Checkout")}>
           <Text style={styles.checkoutBtnText}>{t("proceed_checkout")} · {rupees(finalTotal)}</Text>
         </TouchableOpacity>
@@ -273,6 +295,7 @@ const styles = StyleSheet.create({
   couponApplied: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   couponOk: { color: colors.basil, fontWeight: "700", fontSize: 14 },
   couponErr: { color: colors.chili, fontSize: 12, marginTop: 6 },
+  couponHint: { color: colors.inkFaint, fontSize: 12, marginTop: 6 },
   billRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
   billText: { fontSize: 14, color: colors.ink },
   sep: { height: 1, backgroundColor: colors.line, marginVertical: 8 },

@@ -187,7 +187,7 @@ export default function OrderDetailScreen({ route, navigation }) {
         {order.items.map((item) => (
           <View key={item.id} style={styles.itemRow}>
             <Text style={styles.itemName}>{item.menuItem.soldByWeight ? `${item.quantity}g` : `${item.quantity}×`} {item.menuItem.name}</Text>
-            <Text style={styles.itemPrice}>₹{(item.price * item.quantity).toFixed(0)}</Text>
+            <Text style={styles.itemPrice}>{rupees(item.price * item.quantity)}</Text>
           </View>
         ))}
         {order.staffCost > 0 && (
@@ -196,16 +196,19 @@ export default function OrderDetailScreen({ route, navigation }) {
         {order.discountAmount > 0 && (
           <View style={styles.itemRow}><Text style={[styles.itemName, { color: colors.basil }]}>Discount{order.couponCode ? ` (${order.couponCode})` : ""}</Text><Text style={[styles.itemPrice, { color: colors.basil }]}>−{rupees(order.discountAmount)}</Text></View>
         )}
-        {order.pointsDiscount > 0 && (
-          <View style={styles.itemRow}><Text style={[styles.itemName, { color: colors.basil }]}>Reward points</Text><Text style={[styles.itemPrice, { color: colors.basil }]}>−{rupees(order.pointsDiscount)}</Text></View>
+        {order.gstAmount > 0 && (
+          <View style={styles.itemRow}><Text style={styles.itemName}>GST</Text><Text style={styles.itemPrice}>{rupees(order.gstAmount)}</Text></View>
         )}
         <View style={styles.itemRow}>
           <Text style={styles.itemName}>Delivery</Text>
           <Text style={styles.itemPrice}>{order.deliveryFee > 0 ? rupees(order.deliveryFee) : "Free"}</Text>
         </View>
+        {order.pointsDiscount > 0 && (
+          <View style={styles.itemRow}><Text style={[styles.itemName, { color: colors.basil }]}>Reward points</Text><Text style={[styles.itemPrice, { color: colors.basil }]}>−{rupees(order.pointsDiscount)}</Text></View>
+        )}
         <View style={[styles.itemRow, { marginTop: spacing.sm, borderTopWidth: 1, borderColor: colors.line, paddingTop: spacing.sm }]}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>₹{order.totalAmount.toFixed(0)}</Text>
+          <Text style={styles.totalLabel}>{order.gstAmount > 0 ? "Total (incl. GST)" : "Total"}</Text>
+          <Text style={styles.totalValue}>{rupees(order.totalAmount)}</Text>
         </View>
       </View>
 

@@ -5,7 +5,7 @@ import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../i18n";
 import { colors, spacing } from "../theme";
-import { rupees, longDate } from "../utils";
+import { rupees, longDate, computeTotals } from "../utils";
 
 // Monday first; the number is the weekday the server uses (0 = Sunday)
 const DAYS = [
@@ -32,7 +32,7 @@ function PlanCard({ plan, onChanged }) {
         </View>
       </View>
       <Text style={styles.planSub}>{plan.days.map((d) => DAY_LABEL[d]).join(", ")} · {plan.timeSlot}</Text>
-      <Text style={styles.planSub}>{rupees(plan.weekly?.total)} per week (GST included)</Text>
+      <Text style={styles.planSub}>{rupees(plan.weekly?.total)} per week (incl. {plan.weekly?.gstPercent ?? 5}% GST)</Text>
 
       <Text style={[styles.label, { marginTop: spacing.md }]}>Upcoming deliveries</Text>
       {plan.upcoming.length === 0 ? (
@@ -117,8 +117,11 @@ export default function SubscribeScreen({ navigation }) {
   const item = info?.items.find((i) => i.id === itemId);
   const gross = item ? item.price * boxes * days.length : 0;
   const saving$ = info ? Math.round((gross * info.discountPct) / 100) : 0;
-  const weekly = gross - saving$;
-  const gst = Math.round(weekly - weekly / 1.05);
+  // GST is added on top of the price after the weekly saving
+  const gstPercent = info?.gstPercent ?? 5;
+  const wk = computeTotals({ subtotal: gross, discount: saving$, gstPercent });
+  const weekly = wk.total;
+  const gst = wk.gst;
 
   function toggleDay(n) {
     setDays((prev) => (prev.includes(n) ? prev.filter((d) => d !== n) : [...prev, n]));
@@ -228,8 +231,8 @@ export default function SubscribeScreen({ navigation }) {
             {saving$ > 0 && (
               <View style={styles.sumRow}><Text style={[styles.sumText, { color: colors.basil }]}>Weekly plan saving ({Math.round(info.discountPct)}%)</Text><Text style={[styles.sumText, { color: colors.basil }]}>−{rupees(saving$)}</Text></View>
             )}
-            <View style={styles.sumRow}><Text style={styles.sumText}>GST (5%, included)</Text><Text style={styles.sumText}>{rupees(gst)}</Text></View>
-            <View style={[styles.sumRow, styles.sumTotal]}><Text style={styles.sumTotalText}>Per week</Text><Text style={styles.sumTotalText}>{rupees(weekly)}</Text></View>
+            <View style={styles.sumRow}><Text style={styles.sumText}>GST ({gstPercent}%)</Text><Text style={styles.sumText}>{rupees(gst)}</Text></View>
+            <View style={[styles.sumRow, styles.sumTotal]}><Text style={styles.sumTotalText}>Per week (incl. GST)</Text><Text style={styles.sumTotalText}>{rupees(weekly)}</Text></View>
           </View>
           <Text style={styles.fine}>
             First delivery {longDate(`${info.firstDelivery}T12:00:00+05:30`)} or the next day you picked. Skip or pause before 6 PM the day before.

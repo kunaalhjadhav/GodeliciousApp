@@ -8,7 +8,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // - Android emulator:  http://10.0.2.2:5000
 // - iOS simulator:     http://localhost:5000
 // - Physical device:   http://<your-computer-LAN-IP>:5000  (e.g. 192.168.1.5)
-export const API_URL = "https://diplomatic-creativity-production-eebd.up.railway.app";
+export const API_URL = "https://godelicious.onrender.com";
 
 const TOKEN_KEY = "godelicious_token";
 
@@ -74,13 +74,14 @@ export const api = {
   sendMessage: (body) => request("/api/chat/my", { method: "POST", body: { body } }),
 
   // OTP login
-  checkPhone: (phone) => request("/api/auth/otp/check-phone", { method: "POST", body: { phone } }),
   requestOtp: (phone) => request("/api/auth/otp/request", { method: "POST", body: { phone } }),
   verifyOtp: (phone, code, name) =>
     request("/api/auth/otp/verify", { method: "POST", body: { phone, code, name } }),
 
   // Settings
   getSettings: () => request("/api/settings"),
+  serviceCheck: (latitude, longitude) => request("/api/settings/service-check", { method: "POST", body: { latitude, longitude } }),
+  listMealBoxes: () => request("/api/meal-boxes"),
 
   // Razorpay
   createRazorpayOrder: (orderId) =>

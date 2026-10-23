@@ -7,6 +7,7 @@ import RazorpayCheckout from "react-native-razorpay";
 import { api, API_URL } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { colors, spacing } from "../theme";
+import { rupees, computeTotals } from "../utils";
 import { GOOGLE_MAPS_API_KEY } from "../config";
 import LocationPickerMap from "../components/LocationPickerMap";
 
@@ -82,6 +83,13 @@ export default function BookingScreen({ route, navigation }) {
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [coords, setCoords] = useState(null);
+  const [areaMsg, setAreaMsg] = useState(""); // set when the chosen location is outside the delivery area
+  useEffect(() => {
+    if (!coords) { setAreaMsg(""); return; }
+    api.serviceCheck(coords.latitude, coords.longitude)
+      .then((r) => setAreaMsg(r.ok ? "" : r.message || "Service not available to this area yet. Coming shortly. Thank you."))
+      .catch(() => {});
+  }, [coords]);
   const [locating, setLocating] = useState(false);
   const [showMap, setShowMap] = useState(false);
 
@@ -150,19 +158,15 @@ export default function BookingScreen({ route, navigation }) {
   }, 0);
   const subtotal = staffCost + addonsCost;
   const discount = couponStatus?.discountAmount || 0;
-  const cartValue = Math.max(0, subtotal - discount);
   // Delivery fee (0 = free), waived at or above the free-delivery amount - same rule as the server
   const deliveryFee = settings && settings.deliveryFee > 0 && !(settings.freeDeliveryAbove > 0 && subtotal >= settings.freeDeliveryAbove)
     ? settings.deliveryFee : 0;
-  const finalTotal = cartValue + deliveryFee;
-  // Informational only — extracts the GST portion assumed already included in
-  // the price, rather than adding a new charge. See note to the developer:
-  // confirm with your accountant whether GST should be added on top instead,
-  // since that changes the actual amount charged and has real tax-registration
-  // implications — this was deliberately NOT wired into backend pricing.
-  const GST_RATE = 0.05;
-  const gstAmount = finalTotal - finalTotal / (1 + GST_RATE);
-  const belowMinimum = settings && cartValue < settings.minOrderAmount && cartValue > 0;
+  const gstPercent = settings?.gstPercent ?? 5;
+  // GST is added on top of (staff + add-ons - coupon); the minimum is checked before the coupon.
+  const totals = computeTotals({ subtotal, discount, deliveryFee, gstPercent });
+  const finalTotal = totals.total;
+  const gstAmount = totals.gst;
+  const belowMinimum = settings && subtotal < settings.minOrderAmount && subtotal > 0;
   const dateTimeInvalid = !eventDate || !eventTime || combineDateTime(eventDate, eventTime) < new Date(Date.now() + MIN_LEAD_HOURS * 60 * 60 * 1000);
 
   async function applyCoupon() {
@@ -180,8 +184,24 @@ export default function BookingScreen({ route, navigation }) {
   }
 
   async function placeBooking() {
-    if (!eventDate || !eventTime || !guestCount || !address || !phone) {
-      Alert.alert("Missing info", "Please fill in date, time, guest count, address, and phone.");
+    const missing = [];
+    if (!eventDate) missing.push("Event date");
+    if (!eventTime) missing.push("Event time");
+    if (!guestCount) missing.push("Number of guests");
+    if (!address.trim()) missing.push("Delivery address");
+    const digits = String(phone || "").replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "");
+    if (!digits) missing.push("Contact phone number");
+    else if (digits.length !== 10) missing.push("A valid 10-digit phone number");
+    if (missing.length) {
+      Alert.alert("Please complete these details", missing.map((m) => `\u2022 ${m}`).join("\n"));
+      return;
+    }
+    if (areaMsg) {
+      Alert.alert("Service not available", areaMsg);
+      return;
+    }
+    if (belowMinimum) {
+      Alert.alert("Minimum order", `The minimum order is ${rupees(settings.minOrderAmount)} (before GST and discounts). Please add more items to continue.`);
       return;
     }
     const chosen = combineDateTime(eventDate, eventTime);
@@ -198,7 +218,7 @@ export default function BookingScreen({ route, navigation }) {
         eventTime,
         guestCount,
         deliveryAddress: address,
-        contactPhone: phone,
+        contactPhone: digits,
         notes,
         latitude: coords?.latitude,
         longitude: coords?.longitude,
@@ -225,7 +245,7 @@ export default function BookingScreen({ route, navigation }) {
         order_id: rp.razorpayOrderId,
         name: "Godelicious",
         description: `${orderType?.name || "Booking"} — Order #${order.id.slice(0, 8)}`,
-        prefill: { name: user.name, email: user.email, contact: phone },
+        prefill: { name: user.name, email: user.email, contact: digits },
         theme: { color: "#1C1B19" },
       });
 
@@ -234,7 +254,7 @@ export default function BookingScreen({ route, navigation }) {
         razorpayPaymentId: rpResult.razorpay_payment_id,
         razorpaySignature: rpResult.razorpay_signature,
       });
-      Alert.alert("Booking confirmed!", `Payment received. Total: ₹${order.totalAmount.toFixed(0)}`, [
+      Alert.alert("Booking confirmed!", `Payment received. Total: ${rupees(order.totalAmount)}`, [
         { text: "Track order", onPress: () => navigation.replace("OrderDetail", { orderId: order.id }) },
       ]);
     } catch (err) {
@@ -314,6 +334,7 @@ export default function BookingScreen({ route, navigation }) {
       <TouchableOpacity onPress={() => setShowMap((s) => !s)}>
         <Text style={styles.locationLink}>🗺️ {showMap ? "Hide map" : "Pick on map"}</Text>
       </TouchableOpacity>
+      {!!areaMsg && <Text style={{ color: colors.chili, fontSize: 13, marginBottom: 6 }}>{areaMsg}</Text>}
       {showMap && (
         <LocationPickerMap
           initialLat={coords?.latitude} initialLng={coords?.longitude}
@@ -420,30 +441,30 @@ export default function BookingScreen({ route, navigation }) {
         {discount > 0 && (
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryItem, { color: colors.basil }]}>Discount</Text>
-            <Text style={[styles.summaryPrice, { color: colors.basil }]}>−₹{discount.toFixed(0)}</Text>
+            <Text style={[styles.summaryPrice, { color: colors.basil }]}>−{rupees(discount)}</Text>
           </View>
         )}
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryItem}>GST (5%, included)</Text>
-          <Text style={styles.summaryPrice}>₹{gstAmount.toFixed(0)}</Text>
+          <Text style={styles.summaryItem}>GST ({gstPercent}%)</Text>
+          <Text style={styles.summaryPrice}>{rupees(gstAmount)}</Text>
         </View>
         <View style={styles.summaryRow}>
           <Text style={[styles.summaryItem, deliveryFee === 0 && { color: colors.basil }]}>Delivery</Text>
-          <Text style={[styles.summaryPrice, deliveryFee === 0 && { color: colors.basil }]}>{deliveryFee === 0 ? "Free" : `₹${deliveryFee}`}</Text>
+          <Text style={[styles.summaryPrice, deliveryFee === 0 && { color: colors.basil }]}>{deliveryFee === 0 ? "Free" : rupees(deliveryFee)}</Text>
         </View>
         <View style={[styles.summaryRow, { marginTop: spacing.sm, borderTopWidth: 1, borderColor: colors.line, paddingTop: spacing.sm }]}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>₹{finalTotal.toFixed(0)}</Text>
+          <Text style={styles.totalLabel}>Total (incl. GST)</Text>
+          <Text style={styles.totalValue}>{rupees(finalTotal)}</Text>
         </View>
       </View>
 
       {belowMinimum && (
         <Text style={styles.minOrderWarning}>
-          Minimum order amount is ₹{settings.minOrderAmount}. Add ₹{(settings.minOrderAmount - cartValue).toFixed(0)} more to continue.
+          Minimum order amount is {rupees(settings.minOrderAmount)} (before GST). Add {rupees(settings.minOrderAmount - subtotal)} more to continue.
         </Text>
       )}
 
-      <TouchableOpacity style={styles.button} onPress={placeBooking} disabled={submitting || belowMinimum || dateTimeInvalid}>
+      <TouchableOpacity style={[styles.button, (belowMinimum || dateTimeInvalid || !address.trim() || !phone || !guestCount) && { opacity: 0.55 }]} onPress={placeBooking} disabled={submitting}>
         <Text style={styles.buttonText}>
           {submitting ? "Processing…" : paymentMethod === "COD" ? "Confirm booking (Cash on delivery)" : "Pay & confirm booking"}
         </Text>

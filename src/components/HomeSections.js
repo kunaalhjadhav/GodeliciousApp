@@ -278,3 +278,33 @@ const s = StyleSheet.create({
   venuesBtnGhost: { borderWidth: 1, borderColor: "#6A665C", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 14 },
   venuesBtnGhostText: { color: colors.paper, fontWeight: "600", fontSize: 13 },
 });
+
+
+// Horizontal strip of meal boxes on the home screen
+export function MealBoxStrip({ info, onOpen, onAll }) {
+  const boxes = info?.items || [];
+  if (boxes.length === 0) return null;
+  return (
+    <View>
+      <SectionTitle title="Meal boxes" action="See all" onAction={onAll} />
+      <Text style={{ marginHorizontal: 16, marginBottom: 8, fontSize: 12, color: "#8A8578" }}>
+        Order at least {info.minQty || 10} meals, mix any boxes
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
+        {boxes.map((b) => (
+          <TouchableOpacity key={b.id} onPress={() => onOpen(b)} style={{ width: 150, marginRight: 10, backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: "#E4DFD3", overflow: "hidden" }}>
+            {b.imageUrl ? (
+              <Image source={{ uri: resolveImageUrl(b.imageUrl) }} style={{ width: "100%", height: 90 }} />
+            ) : (
+              <View style={{ width: "100%", height: 90, backgroundColor: "#E4DFD3" }} />
+            )}
+            <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: "700", color: "#2A2822", paddingHorizontal: 10, paddingTop: 8 }}>{b.name}</Text>
+            <Text style={{ fontSize: 11, color: "#C97F1F", paddingHorizontal: 10, paddingBottom: 8, paddingTop: 2 }}>
+              ₹{b.price} + GST · {b.dishCount} dishes
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}

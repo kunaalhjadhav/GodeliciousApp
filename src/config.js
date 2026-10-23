@@ -8,4 +8,4 @@
 // Console > APIs & Services > Credentials, with the Geocoding API enabled.
 // Leave blank to disable auto-fill (GPS coordinates still work for delivery,
 // the address field just won't be filled in automatically).
-export const GOOGLE_MAPS_API_KEY = "AIzaSyAMVHG92yiSUlaPmGUG9usTBbGLrmPNbss";
+export const GOOGLE_MAPS_API_KEY = "";

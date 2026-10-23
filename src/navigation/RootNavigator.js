@@ -21,6 +21,7 @@ import ChatScreen from "../screens/ChatScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
 import BookingScreen from "../screens/BookingScreen";
 import ItemDetailScreen from "../screens/ItemDetailScreen";
+import MealBoxesScreen from "../screens/MealBoxesScreen";
 import BrandsScreen from "../screens/BrandsScreen";
 import BrandDetailScreen from "../screens/BrandDetailScreen";
 import VenuesScreen from "../screens/VenuesScreen";
@@ -48,6 +49,7 @@ function MenuStack() {
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: "Notifications" }} />
       <Stack.Screen name="Booking" component={BookingScreen} options={{ title: "Book this package" }} />
       <Stack.Screen name="ItemDetail" component={ItemDetailScreen} options={{ title: "Item details" }} />
+      <Stack.Screen name="MealBoxes" component={MealBoxesScreen} options={{ title: "Meal boxes" }} />
       <Stack.Screen name="Venues" component={VenuesScreen} options={{ title: "Book a venue" }} />
       <Stack.Screen
         name="VenueDetail" component={VenueDetailScreen}

@@ -3,6 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "./src/context/AuthContext";
 import { CartProvider } from "./src/context/CartContext";
+import { FavoritesProvider } from "./src/context/FavoritesContext";
+import { LanguageProvider } from "./src/i18n";
 import RootNavigator from "./src/navigation/RootNavigator";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 
@@ -26,12 +28,16 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <CartProvider>
-          <RootNavigator />
-          {checkedOnboarding && showOnboarding && <OnboardingScreen onDone={dismissOnboarding} />}
-        </CartProvider>
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <FavoritesProvider>
+            <CartProvider>
+              <RootNavigator />
+              {checkedOnboarding && showOnboarding && <OnboardingScreen onDone={dismissOnboarding} />}
+            </CartProvider>
+          </FavoritesProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </SafeAreaProvider>
   );
 }

@@ -43,9 +43,9 @@ export default function ItemCard({ item, navigation, onAddPress }) {
         )}
         {!!item.description && <Text style={styles.desc} numberOfLines={2}>{item.description}</Text>}
         <View style={styles.footer}>
-          <Text style={styles.price}>₹{item.price}{item.soldByWeight ? " / kg" : ""}</Text>
+          <Text style={styles.price}>₹{item.price}{item.soldByWeight ? " / kg" : ""}<Text style={{ fontSize: 11, fontWeight: "500", color: colors.inkFaint }}> + GST</Text></Text>
           <TouchableOpacity style={styles.addBtn} onPress={() => onAddPress(item)}>
-            <Text style={styles.addText}>{item.isCombo || item.soldByWeight ? t("customize") : t("add")}</Text>
+            <Text style={styles.addText}>{item.isCombo || item.soldByWeight || item.isMealBox ? t("customize") : t("add")}</Text>
           </TouchableOpacity>
         </View>
       </View>

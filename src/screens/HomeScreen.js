@@ -16,7 +16,7 @@ import OrderTypesRow from "../components/OrderTypesRow";
 import ItemCard from "../components/ItemCard";
 import {
   SectionTitle, NextDeliveryCard, CutoffBanner, FilterChips, OccasionPlanner, OffersStrip,
-  OrderAgainStrip, BrandStrip, WeeklyBoxPromo, VenuesPromo, showCouponHint,
+  OrderAgainStrip, BrandStrip, WeeklyBoxPromo, VenuesPromo, showCouponHint, MealBoxStrip,
 } from "../components/HomeSections";
 
 export default function HomeScreen({ navigation }) {
@@ -159,6 +159,11 @@ export default function HomeScreen({ navigation }) {
               occasions={feed?.occasions || []}
               onPick={(o) => navigation.navigate("PartySize", { occasion: o.label, guests: o.guests, foodStyle: o.foodStyle })}
               onPlan={() => navigation.navigate("PartySize")}
+            />
+            <MealBoxStrip
+              info={feed?.mealBoxes}
+              onOpen={(b) => navigation.navigate("ItemDetail", { itemId: b.id })}
+              onAll={() => navigation.navigate("MealBoxes")}
             />
             <OffersStrip
               offers={feed?.offers || []} cartTotal={totalAmount}

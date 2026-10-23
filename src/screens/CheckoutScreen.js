@@ -6,7 +6,7 @@ import { api, API_URL } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { colors, spacing } from "../theme";
-import { rupees } from "../utils";
+import { rupees, computeTotals, mealBoxCount } from "../utils";
 import { APP_NAME } from "../brand";
 import { GOOGLE_MAPS_API_KEY } from "../config";
 import LocationPickerMap from "../components/LocationPickerMap";
@@ -73,6 +73,13 @@ export default function CheckoutScreen({ navigation }) {
   const [eventTime, setEventTime] = useState(null);
   const [guestCount, setGuestCount] = useState("");
   const [coords, setCoords] = useState(null);
+  const [areaMsg, setAreaMsg] = useState(""); // set when the chosen location is outside the delivery area
+  useEffect(() => {
+    if (!coords) { setAreaMsg(""); return; }
+    api.serviceCheck(coords.latitude, coords.longitude)
+      .then((r) => setAreaMsg(r.ok ? "" : r.message || "Service not available to this area yet. Coming shortly. Thank you."))
+      .catch(() => {});
+  }, [coords]);
   const [locating, setLocating] = useState(false);
   const [showMap, setShowMap] = useState(false);
 
@@ -119,17 +126,21 @@ export default function CheckoutScreen({ navigation }) {
   }
 
   const discount = couponStatus?.discountAmount || 0;
-  const cartValue = Math.max(0, totalAmount - discount);
-  // Delivery fee: same rule the server applies (0 = free; waived above the free-delivery amount)
+  // Delivery fee: same rule the server applies (0 = free; waived above the free-delivery amount, measured before the coupon)
   const deliveryFee = settings && settings.deliveryFee > 0 && !(settings.freeDeliveryAbove > 0 && totalAmount >= settings.freeDeliveryAbove)
     ? settings.deliveryFee : 0;
-  // Reward points: 10 points = Rs 1, whole rupees only
-  const pointsRupees = usePoints && loyalty ? Math.min(Math.floor(loyalty.points / 10), Math.floor(cartValue + deliveryFee)) : 0;
-  const finalTotal = Math.max(0, cartValue + deliveryFee - pointsRupees);
-  // GST is already inside the prices; this line only shows how much of the total it is
-  const GST_RATE = 0.05;
-  const gstAmount = finalTotal - finalTotal / (1 + GST_RATE);
-  const belowMinimum = settings && cartValue < settings.minOrderAmount && cartValue > 0;
+  const gstPercent = settings?.gstPercent ?? 5;
+  // GST is added on top of (items - coupon). Reward points (10 points = Rs 1, whole rupees) come off the amount payable.
+  const base = computeTotals({ subtotal: totalAmount, discount, deliveryFee, gstPercent });
+  const pointsRupees = usePoints && loyalty ? Math.min(Math.floor(loyalty.points / 10), Math.floor(base.taxable + base.gst + base.deliveryFee)) : 0;
+  const totals = computeTotals({ subtotal: totalAmount, discount, deliveryFee, pointsRupees, gstPercent });
+  const finalTotal = totals.total;
+  const gstAmount = totals.gst;
+  // The minimum order is checked on the cart BEFORE the coupon, so a coupon never blocks checkout.
+  const belowMinimum = settings && totalAmount < settings.minOrderAmount && totalAmount > 0;
+  const boxMin = settings?.mealBoxMinQty ?? 10;
+  const boxes = mealBoxCount(items);
+  const boxesShort = boxes > 0 && boxes < boxMin;
   const minAllowedTime = new Date(Date.now() + MIN_LEAD_HOURS * 60 * 60 * 1000);
   const dateTimeInvalid = !eventDate || !eventTime || combineDateTime(eventDate, eventTime) < minAllowedTime;
   // A whole day is greyed out when even its last slot (9 PM) is inside the notice window
@@ -222,18 +233,38 @@ export default function CheckoutScreen({ navigation }) {
   }
 
   async function placeOrder() {
-    if (!address || !phone) {
-      Alert.alert("Missing info", "Delivery address and phone number are required.");
+    // Collect everything that's missing and show it in one pop-up
+    const missing = [];
+    if (!address.trim()) missing.push("Delivery address");
+    const phoneDigits = String(phone || "").replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "");
+    if (!phoneDigits) missing.push("Contact phone number");
+    else if (phoneDigits.length !== 10) missing.push("A valid 10-digit phone number");
+    if (!eventDate) missing.push("Delivery date");
+    if (!eventTime) missing.push("Delivery time");
+    if (!items.length) missing.push("At least one item in your cart");
+    if (missing.length) {
+      Alert.alert(
+        "Please complete these details",
+        missing.map((m) => `\u2022 ${m}`).join("\n")
+      );
       return;
     }
-    if (!eventDate || !eventTime) {
-      Alert.alert("Missing info", "Please select a delivery date and time.");
+    if (areaMsg) {
+      Alert.alert("Service not available", areaMsg);
+      return;
+    }
+    if (belowMinimum) {
+      Alert.alert("Minimum order", `The minimum order is ${rupees(settings.minOrderAmount)} (before GST and discounts). Please add more items to continue.`);
+      return;
+    }
+    if (boxesShort) {
+      Alert.alert("Meal boxes", `Meal boxes need a minimum of ${boxMin} meals per order. You have ${boxes}. Please add ${boxMin - boxes} more.`);
       return;
     }
     const chosen = combineDateTime(eventDate, eventTime);
     const minAllowed = new Date(Date.now() + MIN_LEAD_HOURS * 60 * 60 * 1000);
     if (chosen < minAllowed) {
-      Alert.alert("Too soon", `Orders must be placed at least ${MIN_LEAD_HOURS} hours before the selected delivery time.`);
+      Alert.alert("Too soon", `Orders must be placed at least ${MIN_LEAD_HOURS} hours before the selected delivery time. Please pick a later date or time.`);
       return;
     }
     setSubmitting(true);
@@ -245,7 +276,7 @@ export default function CheckoutScreen({ navigation }) {
           selectedOptions: line.selectedOptions,
         })),
         deliveryAddress: address,
-        contactPhone: phone,
+        contactPhone: phoneDigits,
         notes,
         eventDate: eventDate.toISOString(),
         eventTime,
@@ -280,7 +311,7 @@ export default function CheckoutScreen({ navigation }) {
         order_id: rp.razorpayOrderId,
         name: APP_NAME,
         description: `Order #${order.id.slice(0, 8)}`,
-        prefill: { name: user.name, email: user.email, contact: phone },
+        prefill: { name: user.name, email: user.email, contact: phoneDigits },
         theme: { color: "#1C1B19" },
       });
 
@@ -290,7 +321,7 @@ export default function CheckoutScreen({ navigation }) {
         razorpaySignature: rpResult.razorpay_signature,
       });
       clearCart();
-      Alert.alert("Order placed!", `Payment confirmed. Total: ₹${order.totalAmount.toFixed(0)}`, [
+      Alert.alert("Order placed!", `Payment confirmed. Total: ${rupees(order.totalAmount)}`, [
         { text: "Track order", onPress: () => navigation.replace("OrderDetail", { orderId: order.id }) },
       ]);
     } catch (err) {
@@ -351,6 +382,7 @@ export default function CheckoutScreen({ navigation }) {
             <Text style={styles.locationChipText}>🗺️ {showMap ? "Hide map" : "Pick on map"}</Text>
           </TouchableOpacity>
         </View>
+        {!!areaMsg && <Text style={{ color: colors.chili, fontSize: 13, marginTop: 6 }}>{areaMsg}</Text>}
         {showMap && (
           <View style={{ marginTop: spacing.sm }}>
             <LocationPickerMap
@@ -507,52 +539,61 @@ export default function CheckoutScreen({ navigation }) {
                 {line.menuItem.soldByWeight ? `${line.quantity}g` : `${line.quantity}×`} {line.menuItem.name}
               </Text>
             </View>
-            <Text style={styles.summaryPrice}>₹{(line.unitPrice * line.quantity).toFixed(0)}</Text>
+            <Text style={styles.summaryPrice}>{rupees(line.unitPrice * line.quantity)}</Text>
           </View>
         ))}
-        <View style={styles.divider} />
-        {discount > 0 && (
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryItem, { color: colors.basil }]}>Discount</Text>
-            <Text style={[styles.summaryPrice, { color: colors.basil }]}>−₹{discount.toFixed(0)}</Text>
-          </View>
-        )}
         {staff && (
           <View style={styles.summaryRow}>
             <Text style={styles.summaryItem}>Serving staff ({staff.count} x ₹{staff.unitPrice})</Text>
-            <Text style={styles.summaryPrice}>₹{(staff.count * staff.unitPrice).toFixed(0)}</Text>
+            <Text style={styles.summaryPrice}>{rupees(staff.count * staff.unitPrice)}</Text>
           </View>
         )}
-        {pointsRupees > 0 && (
+        <View style={styles.divider} />
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryItem}>Items total</Text>
+          <Text style={styles.summaryPrice}>{rupees(totalAmount)}</Text>
+        </View>
+        {discount > 0 && (
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryItem, { color: colors.basil }]}>Reward points</Text>
-            <Text style={[styles.summaryPrice, { color: colors.basil }]}>−₹{pointsRupees}</Text>
+            <Text style={[styles.summaryItem, { color: colors.basil }]}>Coupon discount</Text>
+            <Text style={[styles.summaryPrice, { color: colors.basil }]}>−{rupees(discount)}</Text>
           </View>
         )}
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryItem}>GST (5%, included)</Text>
-          <Text style={styles.summaryPrice}>₹{gstAmount.toFixed(0)}</Text>
+          <Text style={styles.summaryItem}>GST ({gstPercent}%)</Text>
+          <Text style={styles.summaryPrice}>{rupees(gstAmount)}</Text>
         </View>
         <View style={styles.summaryRow}>
           <Text style={[styles.summaryItem, deliveryFee === 0 && { color: colors.basil }]}>Delivery</Text>
-          <Text style={[styles.summaryPrice, deliveryFee === 0 && { color: colors.basil }]}>{deliveryFee === 0 ? "Free" : `₹${deliveryFee}`}</Text>
+          <Text style={[styles.summaryPrice, deliveryFee === 0 && { color: colors.basil }]}>{deliveryFee === 0 ? "Free" : rupees(deliveryFee)}</Text>
         </View>
+        {pointsRupees > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryItem, { color: colors.basil }]}>Reward points</Text>
+            <Text style={[styles.summaryPrice, { color: colors.basil }]}>−{rupees(pointsRupees)}</Text>
+          </View>
+        )}
         <View style={styles.divider} />
         <View style={styles.summaryRow}>
-          <Text style={styles.totalLabel}>To pay</Text>
-          <Text style={styles.totalValue}>₹{finalTotal.toFixed(0)}</Text>
+          <Text style={styles.totalLabel}>To pay (incl. GST)</Text>
+          <Text style={styles.totalValue}>{rupees(finalTotal)}</Text>
         </View>
       </View>
 
       {belowMinimum && (
         <Text style={styles.minOrderWarning}>
-          Minimum order amount is ₹{settings.minOrderAmount}. Add ₹{(settings.minOrderAmount - finalTotal).toFixed(0)} more to checkout.
+          Minimum order amount is {rupees(settings.minOrderAmount)} (before GST and discounts). Add {rupees(settings.minOrderAmount - totalAmount)} more to checkout.
+        </Text>
+      )}
+      {boxesShort && (
+        <Text style={styles.minOrderWarning}>
+          Meal boxes need a minimum of {boxMin} meals per order. Add {boxMin - boxes} more.
         </Text>
       )}
 
-      <TouchableOpacity style={styles.button} onPress={placeOrder} disabled={submitting || belowMinimum || dateTimeInvalid}>
+      <TouchableOpacity style={[styles.button, (belowMinimum || boxesShort || dateTimeInvalid || !address.trim() || !phone) && { opacity: 0.55 }]} onPress={placeOrder} disabled={submitting}>
         <Text style={styles.buttonText}>
-          {submitting ? "Processing…" : paymentMethod === "COD" ? `Place order · ₹${finalTotal.toFixed(0)}` : `Pay ₹${finalTotal.toFixed(0)}`}
+          {submitting ? "Processing…" : paymentMethod === "COD" ? `Place order · ${rupees(finalTotal)}` : `Pay ${rupees(finalTotal)}`}
         </Text>
       </TouchableOpacity>
     </ScrollView>

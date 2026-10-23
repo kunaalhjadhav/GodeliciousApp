@@ -1,52 +1,24 @@
 import React, { useState } from "react";
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView,
-} from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../api/client";
 import { colors, spacing } from "../theme";
 
-export default function RegisterScreen({ navigation, route }) {
-  const { loginWithOtp } = useAuth();
-  const [phone, setPhone] = useState(route?.params?.phone || "");
+export default function RegisterScreen({ navigation }) {
+  const { register } = useAuth();
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [devCode, setDevCode] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  async function sendCode() {
-    if (!name.trim() || !phone) {
-      Alert.alert("Missing info", "Please enter your name and phone number.");
+  async function handleRegister() {
+    if (!name || !email || !password) {
+      Alert.alert("Missing info", "Name, email and password are required.");
       return;
     }
     setSubmitting(true);
     try {
-      const { exists } = await api.checkPhone(phone);
-      if (exists) {
-        Alert.alert("Already registered", "This number already has an account. Please sign in instead.");
-        return;
-      }
-      // The account is created by the backend when the OTP is verified,
-      // using the name sent along with the code.
-      const data = await api.requestOtp(phone);
-      setOtpSent(true);
-      setDevCode(data.devCode || "");
-    } catch (err) {
-      Alert.alert("Couldn't send code", err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function verifyCode() {
-    if (!code) {
-      Alert.alert("Missing info", "Please enter the code.");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await loginWithOtp(phone, code, name.trim());
+      await register(name, email, password, phone);
     } catch (err) {
       Alert.alert("Couldn't create account", err.message);
     } finally {
@@ -55,60 +27,40 @@ export default function RegisterScreen({ navigation, route }) {
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>Create account</Text>
-        <Text style={styles.helper}>Enter your name and mobile number. We'll send a verification code to finish signup.</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Create account</Text>
 
-        <Text style={styles.label}>Your name</Text>
-        <TextInput
-          style={[styles.input, otpSent && styles.inputDisabled]} value={name} onChangeText={setName}
-          editable={!otpSent} placeholder="Jane Doe" autoComplete="name"
-        />
+      <Text style={styles.label}>Full name</Text>
+      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Jane Doe" />
 
-        <Text style={styles.label}>Mobile number</Text>
-        <TextInput
-          style={[styles.input, otpSent && styles.inputDisabled]} value={phone} onChangeText={setPhone}
-          editable={!otpSent} keyboardType="phone-pad" placeholder="9876543210" autoComplete="tel"
-        />
+      <Text style={styles.label}>Email</Text>
+      <TextInput
+        style={styles.input} value={email} onChangeText={setEmail}
+        autoCapitalize="none" keyboardType="email-address" placeholder="you@example.com"
+      />
 
-        {otpSent && (
-          <>
-            <Text style={styles.label}>Enter the 6-digit code</Text>
-            <TextInput
-              style={styles.input} value={code} onChangeText={setCode}
-              keyboardType="number-pad" maxLength={6} placeholder="123456"
-              autoComplete="sms-otp" textContentType="oneTimeCode"
-            />
-            {!!devCode && (
-              <Text style={styles.devCode}>Dev mode — your code is {devCode}</Text>
-            )}
-          </>
-        )}
+      <Text style={styles.label}>Phone</Text>
+      <TextInput style={styles.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="9876543210" />
 
-        <TouchableOpacity style={styles.button} onPress={otpSent ? verifyCode : sendCode} disabled={submitting}>
-          <Text style={styles.buttonText}>
-            {submitting ? "Please wait…" : otpSent ? "Verify & continue" : "Register"}
-          </Text>
-        </TouchableOpacity>
+      <Text style={styles.label}>Password</Text>
+      <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry placeholder="At least 6 characters" />
 
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: spacing.md }}>
-          <Text style={styles.link}>Already have an account? Sign in</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={submitting}>
+        <Text style={styles.buttonText}>{submitting ? "Creating…" : "Create account"}</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: spacing.md }}>
+        <Text style={styles.link}>Already have an account? Sign in</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.paper },
-  scroll: { flexGrow: 1, padding: spacing.lg, justifyContent: "center" },
-  title: { fontSize: 24, fontWeight: "700", color: colors.ink, marginBottom: spacing.sm, textAlign: "center" },
-  helper: { fontSize: 12, color: colors.inkFaint, marginBottom: spacing.md, textAlign: "center" },
+  container: { flexGrow: 1, backgroundColor: colors.paper, padding: spacing.lg, justifyContent: "center" },
+  title: { fontSize: 24, fontWeight: "700", color: colors.ink, marginBottom: spacing.lg, textAlign: "center" },
   label: { fontSize: 12, color: colors.inkFaint, marginBottom: 4, marginTop: spacing.sm, textTransform: "uppercase" },
   input: { borderWidth: 1, borderColor: colors.line, borderRadius: 4, padding: 10, backgroundColor: colors.white, fontSize: 15, color: colors.ink },
-  inputDisabled: { backgroundColor: colors.line },
-  devCode: { fontSize: 12, color: colors.saffron2, marginTop: spacing.sm, fontFamily: "monospace" },
   button: { backgroundColor: colors.charcoal, borderRadius: 4, padding: 14, alignItems: "center", marginTop: spacing.lg },
   buttonText: { color: colors.paper, fontWeight: "600", fontSize: 15 },
   link: { color: colors.saffron2, textAlign: "center", fontSize: 14 },

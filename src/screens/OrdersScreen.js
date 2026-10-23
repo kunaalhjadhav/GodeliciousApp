@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } fr
 import { useFocusEffect } from "@react-navigation/native";
 import { api } from "../api/client";
 import { colors, spacing } from "../theme";
+import { rupees } from "../utils";
 
 const STATUS_COLORS = {
   PENDING: colors.saffron2,
@@ -47,7 +48,7 @@ export default function OrdersScreen({ navigation }) {
           <Text style={styles.itemsSummary}>
             {order.items.map((i) => `${i.menuItem.soldByWeight ? `${i.quantity}g` : `${i.quantity}×`} ${i.menuItem.name}`).join(", ")}
           </Text>
-          <Text style={styles.total}>₹{order.totalAmount.toFixed(0)}</Text>
+          <Text style={styles.total}>{rupees(order.totalAmount)}</Text>
         </TouchableOpacity>
       )}
     />
