@@ -80,6 +80,11 @@ export const api = {
 
   // Settings
   getSettings: () => request("/api/settings"),
+  // Address search / autofill (served by our backend; works with or without a Google key)
+  placesAutocomplete: (q, lat, lng) =>
+    request(`/api/places/autocomplete?q=${encodeURIComponent(q)}${lat != null ? `&lat=${lat}&lng=${lng}` : ""}`),
+  placeDetails: (id) => request(`/api/places/details?id=${encodeURIComponent(id)}`),
+  placesReverse: (lat, lng) => request(`/api/places/reverse?lat=${lat}&lng=${lng}`),
   serviceCheck: (latitude, longitude) => request("/api/settings/service-check", { method: "POST", body: { latitude, longitude } }),
   listMealBoxes: () => request("/api/meal-boxes"),
 

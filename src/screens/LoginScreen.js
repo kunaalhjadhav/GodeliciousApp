@@ -1,13 +1,17 @@
 import React, { useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, Image,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform,
+  ScrollView, Image, Linking, StatusBar,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
-import { colors, spacing } from "../theme";
+import { colors, spacing, greens } from "../theme";
+import GradientView from "../components/GradientView";
 
 export default function LoginScreen() {
   const { loginWithOtp } = useAuth();
+  const navigation = useNavigation();
 
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -49,48 +53,59 @@ export default function LoginScreen() {
     }
   }
 
+  const canClose = navigation && navigation.canGoBack && navigation.canGoBack();
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}>
-        <Image source={require("../assets/logo-full.png")} style={styles.logoFull} />
+      <StatusBar barStyle="light-content" backgroundColor="#064E2B" />
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+        <GradientView colors={greens.headerGradient} style={styles.header}>
+          {canClose && (
+            <TouchableOpacity style={styles.close} onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={styles.closeX}>✕</Text>
+            </TouchableOpacity>
+          )}
+          <Image source={require("../assets/logo-full.png")} style={styles.logo} />
+        </GradientView>
 
-        <View style={styles.form}>
-          <Text style={styles.helper}>New here? Just enter your details — your account is created automatically.</Text>
+        <View style={styles.card}>
+          <Text style={styles.title}>Welcome to Godelicious</Text>
+          <Text style={styles.subtitle}>
+            {otpSent ? "Enter the 6-digit code we sent you" : "Please enter your details to login"}
+          </Text>
 
-          <Text style={styles.label}>Your name</Text>
           <TextInput
             style={[styles.input, otpSent && styles.inputDisabled]} value={name} onChangeText={setName}
-            editable={!otpSent} placeholder="Jane Doe"
+            editable={!otpSent} placeholder="Your name" placeholderTextColor="#9AA8A0"
           />
 
-          <Text style={styles.label}>Mobile number</Text>
-          <TextInput
-            style={[styles.input, otpSent && styles.inputDisabled]} value={phone} onChangeText={setPhone}
-            editable={!otpSent} keyboardType="phone-pad" placeholder="9876543210" autoComplete="tel"
-          />
+          <View style={styles.phoneRow}>
+            <View style={styles.cc}><Text style={styles.ccText}>+91</Text></View>
+            <TextInput
+              style={[styles.input, { flex: 1, marginTop: 0 }, otpSent && styles.inputDisabled]}
+              value={phone} onChangeText={setPhone} editable={!otpSent}
+              keyboardType="phone-pad" placeholder="Enter mobile number" placeholderTextColor="#9AA8A0"
+              autoComplete="tel"
+            />
+          </View>
 
           {otpSent && (
             <>
-              <Text style={styles.label}>Enter the 6-digit code</Text>
               <TextInput
-                style={styles.input} value={code} onChangeText={setCode}
-                keyboardType="number-pad" maxLength={6} placeholder="123456"
+                style={[styles.input, styles.codeInput]} value={code} onChangeText={setCode}
+                keyboardType="number-pad" maxLength={6} placeholder="• • • • • •" placeholderTextColor="#9AA8A0"
                 autoComplete="sms-otp" textContentType="oneTimeCode"
               />
-              {!!devCode && (
-                <Text style={styles.devCode}>Dev mode — your code is {devCode}</Text>
-              )}
+              {!!devCode && <Text style={styles.devCode}>Dev mode — your code is {devCode}</Text>}
             </>
           )}
 
-          <TouchableOpacity
-            style={styles.button}
-            onPress={otpSent ? verifyCode : requestCode}
-            disabled={submitting}
-          >
-            <Text style={styles.buttonText}>
-              {submitting ? "Please wait…" : otpSent ? "Verify & continue" : "Send code"}
-            </Text>
+          <TouchableOpacity onPress={otpSent ? verifyCode : requestCode} disabled={submitting} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
+            <GradientView colors={greens.buttonGradient} horizontal style={[styles.button, submitting && { opacity: 0.6 }]}>
+              <Text style={styles.buttonText}>
+                {submitting ? "Please wait…" : otpSent ? "Verify & continue" : "Get OTP"}
+              </Text>
+            </GradientView>
           </TouchableOpacity>
 
           {otpSent && (
@@ -98,6 +113,15 @@ export default function LoginScreen() {
               <Text style={styles.link}>Use a different number</Text>
             </TouchableOpacity>
           )}
+
+          <Text style={styles.helper}>New here? Just enter your details — your account is created automatically.</Text>
+
+          <Text style={styles.terms}>
+            By proceeding, you agree to our{" "}
+            <Text style={styles.termsLink} onPress={() => Linking.openURL("https://godelicious.in/terms")}>T&Cs</Text>
+            {" "}and{" "}
+            <Text style={styles.termsLink} onPress={() => Linking.openURL("https://godelicious.in/privacy")}>Privacy Policy</Text>
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -105,22 +129,38 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.charcoal, padding: spacing.lg },
-  logoFull: { width: 220, height: 220, borderRadius: 24, alignSelf: "center", marginBottom: spacing.lg },
-  form: {
-    backgroundColor: colors.paper, borderRadius: 8, padding: spacing.lg,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12,
-    elevation: 6,
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  header: { height: 250, alignItems: "center", justifyContent: "center", paddingBottom: 40 },
+  logo: { width: 130, height: 130, borderRadius: 28 },
+  close: {
+    position: "absolute", top: 44, right: 18, width: 34, height: 34, borderRadius: 17,
+    borderWidth: 1.5, borderColor: "#fff", alignItems: "center", justifyContent: "center", zIndex: 2,
   },
-  helper: { fontSize: 12, color: colors.inkFaint, marginBottom: spacing.sm },
-  label: { fontSize: 12, color: colors.inkFaint, marginBottom: 4, marginTop: spacing.sm, textTransform: "uppercase" },
+  closeX: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  card: {
+    flex: 1, marginTop: -36, backgroundColor: "#fff", borderTopLeftRadius: 30, borderTopRightRadius: 30,
+    paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg,
+    shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8,
+  },
+  title: { fontSize: 24, fontWeight: "800", color: "#1B2B22", textAlign: "center" },
+  subtitle: { fontSize: 14, color: "#5C6B63", textAlign: "center", marginTop: 6, marginBottom: spacing.lg },
+  phoneRow: { flexDirection: "row", alignItems: "center", marginTop: 12 },
+  cc: {
+    height: 52, minWidth: 62, borderRadius: 14, borderWidth: 1, borderColor: "#B9C7BF",
+    alignItems: "center", justifyContent: "center", marginRight: 10, backgroundColor: greens.mint,
+  },
+  ccText: { fontSize: 16, color: "#1B2B22", fontWeight: "600" },
   input: {
-    borderWidth: 1, borderColor: colors.line, borderRadius: 4, padding: 10,
-    backgroundColor: colors.white, fontSize: 15, color: colors.ink,
+    height: 52, borderWidth: 1, borderColor: "#B9C7BF", borderRadius: 14, paddingHorizontal: 16,
+    backgroundColor: "#fff", fontSize: 16, color: colors.ink, marginTop: 0,
   },
-  inputDisabled: { backgroundColor: colors.line },
-  devCode: { fontSize: 12, color: colors.saffron2, marginTop: spacing.sm, fontFamily: "monospace" },
-  button: { backgroundColor: colors.charcoal, borderRadius: 4, padding: 14, alignItems: "center", marginTop: spacing.lg },
-  buttonText: { color: colors.paper, fontWeight: "600", fontSize: 15 },
-  link: { color: colors.saffron2, textAlign: "center", fontSize: 14 },
+  inputDisabled: { backgroundColor: "#EEF3F0" },
+  codeInput: { marginTop: 12, textAlign: "center", letterSpacing: 6, fontSize: 20 },
+  devCode: { fontSize: 12, color: greens.deep, marginTop: spacing.sm, fontFamily: "monospace", textAlign: "center" },
+  button: { height: 54, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  buttonText: { color: "#fff", fontWeight: "700", fontSize: 17 },
+  link: { color: greens.deep, textAlign: "center", fontSize: 14, textDecorationLine: "underline" },
+  helper: { fontSize: 12, color: "#7A8A81", textAlign: "center", marginTop: spacing.lg },
+  terms: { fontSize: 12, color: "#7A8A81", textAlign: "center", marginTop: spacing.xl },
+  termsLink: { color: "#1B2B22", textDecorationLine: "underline" },
 });

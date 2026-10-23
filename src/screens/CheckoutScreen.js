@@ -147,35 +147,29 @@ export default function CheckoutScreen({ navigation }) {
   const dayClosed = (d) => combineDateTime(d, TIME_SLOTS[TIME_SLOTS.length - 1]) < minAllowedTime;
   const slotClosed = (d, slot) => combineDateTime(d, slot) < minAllowedTime;
 
+  // Reverse-geocode through our backend (Google if configured there, else OpenStreetMap) — no key in the app.
   async function reverseGeocode(lat, lng) {
-    if (!GOOGLE_MAPS_API_KEY) return null;
     try {
-      const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`);
-      const data = await res.json();
-      if (data.status === "OK" && data.results?.[0]) return data.results[0].formatted_address;
+      const d = await api.placesReverse(lat, lng);
+      return d.address || null;
     } catch (err) {
       console.error("Reverse geocoding failed:", err);
+      return null;
     }
-    return null;
   }
 
-  // Google Places Autocomplete — lets the customer type a few keywords
-  // ("MG road", "forum mall") and pick from real matching addresses,
-  // instead of only relying on GPS or dropping a pin on a map.
+  // Address autocomplete — type a few words ("vijayanagar", "forum mall") and pick a real match.
   function handleAddressChange(text) {
     setAddress(text);
     setSuggestions([]);
     if (autocompleteTimer.current) clearTimeout(autocompleteTimer.current);
-    if (!GOOGLE_MAPS_API_KEY || text.trim().length < 3) return;
+    if (text.trim().length < 3) return;
 
     autocompleteTimer.current = setTimeout(async () => {
       setSearchingAddress(true);
       try {
-        const res = await fetch(
-          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&key=${GOOGLE_MAPS_API_KEY}`
-        );
-        const data = await res.json();
-        if (data.status === "OK") setSuggestions(data.predictions || []);
+        const data = await api.placesAutocomplete(text.trim(), coords?.latitude, coords?.longitude);
+        setSuggestions(data.suggestions || []);
       } catch (err) {
         console.error("Address search failed:", err);
       } finally {
@@ -184,16 +178,16 @@ export default function CheckoutScreen({ navigation }) {
     }, 400);
   }
 
-  async function selectSuggestion(prediction) {
-    setAddress(prediction.description);
+  async function selectSuggestion(s) {
+    setAddress(s.description);
     setSuggestions([]);
+    if (s.latitude != null) {
+      setCoords({ latitude: s.latitude, longitude: s.longitude });
+      return;
+    }
     try {
-      const res = await fetch(
-        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.place_id}&fields=geometry,formatted_address&key=${GOOGLE_MAPS_API_KEY}`
-      );
-      const data = await res.json();
-      const loc = data.result?.geometry?.location;
-      if (loc) setCoords({ latitude: loc.lat, longitude: loc.lng });
+      const d = await api.placeDetails(s.id);
+      if (d.latitude != null) setCoords({ latitude: d.latitude, longitude: d.longitude });
     } catch (err) {
       console.error("Place details failed:", err);
     }
@@ -366,7 +360,7 @@ export default function CheckoutScreen({ navigation }) {
         {suggestions.length > 0 && (
           <View style={styles.suggestionsBox}>
             {suggestions.slice(0, 5).map((s) => (
-              <TouchableOpacity key={s.place_id} style={styles.suggestionRow} onPress={() => selectSuggestion(s)}>
+              <TouchableOpacity key={s.id} style={styles.suggestionRow} onPress={() => selectSuggestion(s)}>
                 <Text style={styles.suggestionText} numberOfLines={2}>📍 {s.description}</Text>
               </TouchableOpacity>
             ))}

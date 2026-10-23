@@ -121,16 +121,15 @@ export default function BookingScreen({ route, navigation }) {
     });
   }
 
+  // Reverse-geocode through our backend (Google if configured there, else OpenStreetMap) — no key in the app.
   async function reverseGeocode(lat, lng) {
-    if (!GOOGLE_MAPS_API_KEY) return null;
     try {
-      const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`);
-      const data = await res.json();
-      if (data.status === "OK" && data.results?.[0]) return data.results[0].formatted_address;
+      const d = await api.placesReverse(lat, lng);
+      return d.address || null;
     } catch (err) {
       console.error("Reverse geocoding failed:", err);
+      return null;
     }
-    return null;
   }
 
   function useMyLocation() {

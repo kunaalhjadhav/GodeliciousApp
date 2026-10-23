@@ -42,22 +42,44 @@ function mapHtml(apiKey, lat, lng) {
   `;
 }
 
-// Renders the map (if a Google Maps key is configured) and reports the
+// Free fallback (no key, no billing): Leaflet + OpenStreetMap tiles, same pin behaviour.
+function osmHtml(lat, lng) {
+  return `
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <style>html, body, #map { height: 100%; margin: 0; padding: 0; }</style>
+      </head>
+      <body>
+        <div id="map"></div>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>
+          var map = L.map('map').setView([${lat}, ${lng}], 16);
+          L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(map);
+          var marker = L.marker([${lat}, ${lng}], { draggable: true }).addTo(map);
+          function report() {
+            var p = marker.getLatLng();
+            window.ReactNativeWebView.postMessage(JSON.stringify({ lat: p.lat, lng: p.lng }));
+          }
+          marker.on('dragend', report);
+          map.on('click', function (e) { marker.setLatLng(e.latlng); report(); });
+        </script>
+      </body>
+    </html>
+  `;
+}
+
+// Renders the map (Google if a key is configured, otherwise OpenStreetMap) and reports the is configured) and reports the
 // chosen { latitude, longitude } back via onLocationSelected whenever the
 // pin is moved. Reverse geocoding into an address happens on the native
 // side (via fetch), not inside the WebView, to avoid any WebView network
 // quirks — the caller already has a reverseGeocode() helper for this.
 export default function LocationPickerMap({ initialLat, initialLng, onLocationSelected }) {
-  if (!GOOGLE_MAPS_API_KEY) {
-    return (
-      <View style={styles.notice}>
-        <Text style={styles.noticeText}>Map isn't set up yet — add a Google Maps key in src/config.js.</Text>
-      </View>
-    );
-  }
-
-  const lat = initialLat || 12.9716; // sensible fallback center (Bengaluru)
-  const lng = initialLng || 77.5946;
+  const lat = initialLat || 12.322983; // fallback centre: Vijayanagar, Mysuru
+  const lng = initialLng || 76.5878328;
 
   function handleMessage(event) {
     try {
@@ -71,10 +93,12 @@ export default function LocationPickerMap({ initialLat, initialLng, onLocationSe
   return (
     <View style={styles.wrap}>
       <WebView
-        source={{ html: mapHtml(GOOGLE_MAPS_API_KEY, lat, lng) }}
+        source={{ html: GOOGLE_MAPS_API_KEY ? mapHtml(GOOGLE_MAPS_API_KEY, lat, lng) : osmHtml(lat, lng) }}
         style={styles.map}
         onMessage={handleMessage}
         javaScriptEnabled
+        domStorageEnabled
+        originWhitelist={["*"]}
       />
       <Text style={styles.hint}>Drag the pin, or tap anywhere on the map, to set your exact location.</Text>
     </View>

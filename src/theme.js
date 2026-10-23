@@ -14,3 +14,11 @@ export const colors = {
 };
 
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
+
+// Green gradient used on the sign-in screen (matches the web sign-in page).
+export const greens = {
+  headerGradient: ["#064E2B", "#0F8A4B", "#34C26B"],
+  buttonGradient: ["#0F8A4B", "#34C26B"],
+  deep: "#0B6B3A",
+  mint: "#E8F6EE",
+};
