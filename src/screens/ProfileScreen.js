@@ -114,6 +114,7 @@ export default function ProfileScreen({ navigation }) {
           <Row label={t("my_orders")} onPress={() => navigation.navigate("OrdersTab")} />
           <Row label={t("favourites")} onPress={() => go("Favourites")} />
           <Row label={t("weekly_box")} value={activePlans ? "Active" : null} onPress={() => go("Subscribe")} />
+          <Row label={t("book_venue")} onPress={() => go("Venues")} />
           <Row label={t("my_venue_requests")} onPress={() => go("MyVenueRequests")} />
           <Row label={t("saved_addresses")} value={addrCount ? String(addrCount) : null} onPress={() => go("SavedAddresses")} last />
         </View>
