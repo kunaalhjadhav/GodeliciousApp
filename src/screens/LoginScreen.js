@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import { colors, spacing, greens } from "../theme";
 import GradientView from "../components/GradientView";
+import { APP_BUILD } from "../version";
 
 export default function LoginScreen() {
   const { loginWithOtp } = useAuth();
@@ -122,6 +123,7 @@ export default function LoginScreen() {
             {" "}and{" "}
             <Text style={styles.termsLink} onPress={() => Linking.openURL("https://godelicious.in/privacy")}>Privacy Policy</Text>
           </Text>
+          <Text style={styles.version}>v{APP_BUILD}</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -162,5 +164,6 @@ const styles = StyleSheet.create({
   link: { color: greens.deep, textAlign: "center", fontSize: 14, textDecorationLine: "underline" },
   helper: { fontSize: 12, color: "#7A8A81", textAlign: "center", marginTop: spacing.lg },
   terms: { fontSize: 12, color: "#7A8A81", textAlign: "center", marginTop: spacing.xl },
+  version: { fontSize: 10, color: "#A5B2AA", textAlign: "center", marginTop: spacing.md },
   termsLink: { color: "#1B2B22", textDecorationLine: "underline" },
 });

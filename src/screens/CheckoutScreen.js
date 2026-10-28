@@ -282,7 +282,7 @@ export default function CheckoutScreen({ navigation }) {
         usePoints: usePoints && pointsRupees > 0,
         ...(staff && { needsStaff: true, staffCount: staff.count }),
       };
-      const { order } = await api.createOrder(payload);
+      const { order } = await api.createOrder({ ...payload, source: "app" });
 
       if (saveAs && !selectedAddressId) {
         api.addAddress({ label: saveAs, address, phone, latitude: coords?.latitude, longitude: coords?.longitude })

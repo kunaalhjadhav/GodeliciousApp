@@ -190,13 +190,13 @@ export function WeeklyBoxPromo({ info, onPress }) {
 
 export function VenuesPromo({ info, onBrowse, onRequests }) {
   const { t } = useLang();
-  if (!info || !info.count) return null;
+  const count = info?.count || 0;
   return (
     <View style={s.venues}>
       <Text style={s.venuesTitle}>{t("book_venue")}</Text>
       <Text style={s.venuesSub}>
-        Halls in Bengaluru and Mysuru. Compare tariffs, send a date request.
-        {info.fromPrice ? ` Halls from ${rupees(info.fromPrice)}.` : ""}
+        {count ? "Halls in Bengaluru and Mysuru. Compare tariffs, send a date request." : "Party halls and venues for your event. Tap to see what is available."}
+        {info?.fromPrice ? ` Halls from ${rupees(info.fromPrice)}.` : ""}
       </Text>
       <View style={{ flexDirection: "row", marginTop: spacing.sm }}>
         <TouchableOpacity style={s.venuesBtn} onPress={onBrowse}><Text style={s.venuesBtnText}>{t("browse_venues")}</Text></TouchableOpacity>

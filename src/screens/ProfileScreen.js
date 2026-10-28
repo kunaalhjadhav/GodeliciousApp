@@ -8,6 +8,7 @@ import { isPushEnabled, setPushEnabled, pushAvailable } from "../push";
 import { colors, spacing } from "../theme";
 import { rupees } from "../utils";
 import { APP_NAME } from "../brand";
+import { APP_BUILD } from "../version";
 
 function Row({ label, value, onPress, last }) {
   return (
@@ -138,6 +139,7 @@ export default function ProfileScreen({ navigation }) {
             <Text style={[styles.rowLabel, { color: colors.chili, fontWeight: "600" }]}>{t("log_out")}</Text>
           </TouchableOpacity>
         </View>
+        <Text style={styles.small}>App version {APP_BUILD}</Text>
       </View>
     </ScrollView>
   );

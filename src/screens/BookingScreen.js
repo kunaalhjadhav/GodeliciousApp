@@ -227,7 +227,7 @@ export default function BookingScreen({ route, navigation }) {
         couponCode: couponStatus?.discountAmount ? couponCode.trim() : undefined,
         paymentMethod,
       };
-      const { order } = await api.createOrder(payload);
+      const { order } = await api.createOrder({ ...payload, source: "app" });
 
       if (paymentMethod === "COD") {
         Alert.alert("Booking confirmed!", "Pay in cash when your booking is fulfilled.", [
