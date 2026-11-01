@@ -10,7 +10,7 @@ import { colors, spacing } from "../theme";
 import { resolveImageUrl, rupees, weightLabel, mealBoxCount } from "../utils";
 import ComboPickerModal from "../components/ComboPickerModal";
 
-const PRESETS = [1000, 1500, 2000];
+const PRESETS = [250, 500, 1000, 1500, 2000];
 
 export default function ItemDetailScreen({ route, navigation }) {
   const { itemId } = route.params;
@@ -27,7 +27,7 @@ export default function ItemDetailScreen({ route, navigation }) {
   const { isFavorite, toggle } = useFavorites();
 
   const minG = item?.minOrderGrams > 0 ? item.minOrderGrams : 250;
-  const presets = item ? [...new Set([minG, ...PRESETS.filter((g) => g > minG)])].slice(0, 3) : PRESETS;
+  const presets = item ? [...new Set([minG, ...PRESETS.filter((g) => g > minG)])].slice(0, 4) : PRESETS;
 
   useEffect(() => {
     api.getMenuItem(itemId).then((d) => { setItem(d.item); if (d.item?.soldByWeight) setGrams(Math.max(250, d.item.minOrderGrams || 250)); })
