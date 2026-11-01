@@ -137,6 +137,19 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         {!filtered && (
+          <View style={styles.quickRow}>
+            <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate("Venues")}>
+              <Text style={styles.quickTitle}>Book a venue</Text>
+              <Text style={styles.quickSub}>Halls and party venues</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate("PartySize")}>
+              <Text style={styles.quickTitle}>Plan my party</Text>
+              <Text style={styles.quickSub}>Pick dishes by guests</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!filtered && (
           <NextDeliveryCard
             delivery={feed?.nextDelivery}
             onPress={() => navigation.navigate("OrderDetail", { orderId: feed.nextDelivery.id })}
@@ -255,6 +268,10 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  quickRow: { flexDirection: "row", paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  quickBtn: { flex: 1, backgroundColor: "#14532d", borderRadius: 12, padding: 12, marginRight: 8 },
+  quickTitle: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  quickSub: { color: "#cfe8d8", fontSize: 11, marginTop: 2 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.paper },
   header: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.charcoal, flexDirection: "row", alignItems: "center" },
   logo: { width: 32, height: 32, borderRadius: 6, marginRight: spacing.sm },
