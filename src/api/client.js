@@ -71,6 +71,7 @@ export const api = {
   markNotificationRead: (id) => request(`/api/notifications/${id}/read`, { method: "POST" }),
 
   myMessages: () => request("/api/chat/my"),
+  translateChat: (text, to) => request("/api/chat/translate", { method: "POST", body: { text, to } }),
   sendMessage: (body) => request("/api/chat/my", { method: "POST", body: { body } }),
 
   // OTP login
@@ -115,6 +116,8 @@ export const api = {
   getVenue: (id) => request(`/api/venues/${id}`),
   requestVenue: (id, payload) => request(`/api/venues/${id}/bookings`, { method: "POST", body: payload }),
   myVenueRequests: () => request("/api/venues/bookings/my"),
+  venueAdvanceCreate: (id) => request(`/api/venues/bookings/${id}/advance/create`, { method: "POST" }),
+  venueAdvanceVerify: (id, payload) => request(`/api/venues/bookings/${id}/advance/verify`, { method: "POST", body: payload }),
   cancelVenueRequest: (id) => request(`/api/venues/bookings/${id}/cancel`, { method: "PATCH" }),
 
   // Push notifications
