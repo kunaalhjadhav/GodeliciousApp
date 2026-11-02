@@ -74,6 +74,11 @@ export const api = {
   sendMessage: (body) => request("/api/chat/my", { method: "POST", body: { body } }),
 
   // OTP login
+  firebaseStatus: () => request("/api/auth/firebase/status"),
+  firebaseHandoffGet: (sid) => request(`/api/auth/firebase/handoff/${sid}`),
+  waStatus: () => request("/api/auth/wa/status"),
+  waRequest: (phone) => request("/api/auth/wa/request", { method: "POST", body: { phone } }),
+  waVerify: (phone, code, name) => request("/api/auth/wa/verify", { method: "POST", body: { phone, code, name } }),
   requestOtp: (phone) => request("/api/auth/otp/request", { method: "POST", body: { phone } }),
   verifyOtp: (phone, code, name) =>
     request("/api/auth/otp/verify", { method: "POST", body: { phone, code, name } }),

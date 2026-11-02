@@ -1,3 +1,4 @@
+import { Linking } from "react-native";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api, setToken, clearToken, getToken } from "../api/client";
 import { registerForPush } from "../push";
@@ -50,13 +51,40 @@ export function AuthProvider({ children }) {
     setUser(data.user);
   }
 
+  // Sign in with a code delivered on WhatsApp (same account as the SMS sign in)
+  async function loginWithWhatsApp(phone, code, name) {
+    const data = await api.waVerify(phone, code, name);
+    await setToken(data.token);
+    setUser(data.user);
+  }
+
+  // Sign in with Google or Apple: opens the Godelicious sign-in page in the phone's browser,
+  // then waits for the result to come back through the server.
+  async function loginWithSocial() {
+    const bytes = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16));
+    const sid = bytes.join("");
+    await Linking.openURL(`https://godelicious.in/login/app?sid=${sid}`);
+    for (let i = 0; i < 100; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      try {
+        const d = await api.firebaseHandoffGet(sid);
+        if (d.ready) {
+          await setToken(d.token);
+          setUser(d.user);
+          return true;
+        }
+      } catch (_) {}
+    }
+    throw new Error("Sign-in timed out. Please try again.");
+  }
+
   async function logout() {
     await clearToken();
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, loginWithOtp, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, loginWithOtp, loginWithWhatsApp, loginWithSocial, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme";
 
 import LoginScreen from "../screens/LoginScreen";
+import EmailLoginScreen from "../screens/EmailLoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import HomeScreen from "../screens/HomeScreen";
 import CartScreen from "../screens/CartScreen";
@@ -115,6 +116,7 @@ function AuthStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="EmailLogin" component={EmailLoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
     </Stack.Navigator>
   );
