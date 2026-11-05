@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
+import SocialButtons from "../components/SocialButtons";
 import { useAuth } from "../context/AuthContext";
 import { colors, spacing } from "../theme";
 
@@ -48,6 +49,8 @@ export default function RegisterScreen({ navigation }) {
       <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={submitting}>
         <Text style={styles.buttonText}>{submitting ? "Creating…" : "Create account"}</Text>
       </TouchableOpacity>
+
+      <SocialButtons />
 
       <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: spacing.md }}>
         <Text style={styles.link}>Already have an account? Sign in</Text>

@@ -4,6 +4,7 @@ import {
   ScrollView, Image, Linking, StatusBar,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import SocialButtons from "../components/SocialButtons";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import { colors, spacing, greens } from "../theme";
@@ -125,6 +126,8 @@ export default function LoginScreen() {
               <Text style={styles.link}>Sign in with email instead</Text>
             </TouchableOpacity>
           )}
+
+          {!otpSent && <SocialButtons />}
 
           {otpSent && (
             <TouchableOpacity onPress={() => { setOtpSent(false); setCode(""); setDevCode(""); }} style={{ marginTop: spacing.md }}>

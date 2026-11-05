@@ -60,10 +60,10 @@ export function AuthProvider({ children }) {
 
   // Sign in with Google or Apple: opens the Godelicious sign-in page in the phone's browser,
   // then waits for the result to come back through the server.
-  async function loginWithSocial() {
+  async function loginWithSocial(provider) {
     const bytes = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16));
     const sid = bytes.join("");
-    await Linking.openURL(`https://godelicious.in/login/app?sid=${sid}`);
+    await Linking.openURL(`https://godelicious.in/login/app?sid=${sid}${provider ? `&p=${provider}` : ""}`);
     for (let i = 0; i < 100; i++) {
       await new Promise((r) => setTimeout(r, 3000));
       try {

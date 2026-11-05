@@ -1,19 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { colors, spacing } from "../theme";
-import { api } from "../api/client";
+import SocialButtons from "../components/SocialButtons";
 
 // Sign in with email and password (no SMS needed).
 export default function EmailLoginScreen({ navigation }) {
-  const { login, loginWithSocial } = useAuth();
-  const [socialOn, setSocialOn] = useState(false);
-  useEffect(() => { api.firebaseStatus().then((d) => setSocialOn(Boolean(d.enabled))).catch(() => {}); }, []);
-
-  async function handleSocial() {
-    setSubmitting(true);
-    try { await loginWithSocial(); } catch (err) { Alert.alert("Couldn't sign in", err.message); } finally { setSubmitting(false); }
-  }
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -42,17 +35,7 @@ export default function EmailLoginScreen({ navigation }) {
       <TouchableOpacity style={[styles.button, submitting && { opacity: 0.6 }]} onPress={handleLogin} disabled={submitting}>
         <Text style={styles.buttonText}>{submitting ? "Please wait…" : "Sign in"}</Text>
       </TouchableOpacity>
-      {socialOn && (
-        <>
-          <TouchableOpacity style={styles.google} onPress={handleSocial} disabled={submitting}>
-            <Text style={styles.googleText}>Continue with Google</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.apple} onPress={handleSocial} disabled={submitting}>
-            <Text style={styles.appleText}>Continue with Apple</Text>
-          </TouchableOpacity>
-          <Text style={styles.hint}>Opens your browser to sign in, then brings you back here.</Text>
-        </>
-      )}
+      <SocialButtons />
       <TouchableOpacity onPress={() => navigation.navigate("Register")} style={{ marginTop: spacing.lg }}>
         <Text style={styles.link}>New here? Create an account</Text>
       </TouchableOpacity>
