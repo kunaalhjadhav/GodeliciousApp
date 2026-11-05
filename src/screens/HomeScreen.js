@@ -118,10 +118,34 @@ export default function HomeScreen({ navigation }) {
     }
   }
 
+  const catMode = activeCategory !== null && activeCategory !== undefined;
+  const activeCatName = catMode ? (categories.find((c) => c.id === activeCategory)?.name || "") : "";
+
   function renderHeader() {
     return (
       <View>
         {!filtered && <BannerCarousel navigation={navigation} />}
+        {/* Categories sit right under the banner; picking one shows its dishes straight below */}
+        <FlatList
+          horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}
+          contentContainerStyle={{ paddingHorizontal: spacing.md, paddingTop: spacing.sm }}
+          data={[{ id: null, name: "All", imageUrl: null }, ...categories]}
+          keyExtractor={(c) => c.id || "all"}
+          renderItem={({ item }) => (
+            <TouchableOpacity onPress={() => setActiveCategory(item.id)} style={styles.categoryCard}>
+              <View style={[styles.categoryCircle, activeCategory === item.id && styles.categoryCircleActive]}>
+                {item.imageUrl ? (
+                  <Image source={{ uri: resolveImageUrl(item.imageUrl) }} style={styles.categoryImage} />
+                ) : (
+                  <Text style={{ fontSize: 22 }}>{item.id === null ? "🍴" : "🍽️"}</Text>
+                )}
+              </View>
+              <Text style={[styles.categoryLabel, activeCategory === item.id && styles.categoryLabelActive]} numberOfLines={1}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
         <View style={styles.header}>
           <Image source={require("../assets/logo.png")} style={styles.logo} />
           <View style={styles.searchWrap}>
@@ -136,7 +160,7 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {!filtered && (
+        {!filtered && !catMode && (
           <View style={styles.quickRow}>
             <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate("Venues")}>
               <Text style={styles.quickTitle}>Book a venue</Text>
@@ -149,7 +173,7 @@ export default function HomeScreen({ navigation }) {
           </View>
         )}
 
-        {!filtered && (
+        {!filtered && !catMode && (
           <NextDeliveryCard
             delivery={feed?.nextDelivery}
             onPress={() => navigation.navigate("OrderDetail", { orderId: feed.nextDelivery.id })}
@@ -163,6 +187,13 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.resultsText}>{visibleItems.length} result{visibleItems.length === 1 ? "" : "s"}</Text>
             <TouchableOpacity onPress={() => { setSearch(""); setFilters([]); }}>
               <Text style={styles.clear}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+        ) : catMode ? (
+          <View style={styles.resultsRow}>
+            <Text style={styles.resultsText}>{activeCatName} · {visibleItems.length} dish{visibleItems.length === 1 ? "" : "es"}</Text>
+            <TouchableOpacity onPress={() => setActiveCategory(null)}>
+              <Text style={styles.clear}>Show all</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -208,26 +239,6 @@ export default function HomeScreen({ navigation }) {
             )}
 
             <SectionTitle title={t("all_dishes")} />
-            <FlatList
-              horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}
-              contentContainerStyle={{ paddingHorizontal: spacing.md }}
-              data={[{ id: null, name: "All", imageUrl: null }, ...categories]}
-              keyExtractor={(c) => c.id || "all"}
-              renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => setActiveCategory(item.id)} style={styles.categoryCard}>
-                  <View style={[styles.categoryCircle, activeCategory === item.id && styles.categoryCircleActive]}>
-                    {item.imageUrl ? (
-                      <Image source={{ uri: resolveImageUrl(item.imageUrl) }} style={styles.categoryImage} />
-                    ) : (
-                      <Text style={{ fontSize: 22 }}>{item.id === null ? "🍴" : "🍽️"}</Text>
-                    )}
-                  </View>
-                  <Text style={[styles.categoryLabel, activeCategory === item.id && styles.categoryLabelActive]} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            />
           </View>
         )}
       </View>
