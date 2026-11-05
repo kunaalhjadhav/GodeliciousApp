@@ -6,7 +6,7 @@ import { api, API_URL } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { colors, spacing } from "../theme";
-import { rupees, computeTotals, mealBoxCount } from "../utils";
+import { rupees, computeTotals, mealBoxCount, codRuleFor, categoryShortfalls } from "../utils";
 import { APP_NAME } from "../brand";
 import { GOOGLE_MAPS_API_KEY } from "../config";
 import LocationPickerMap from "../components/LocationPickerMap";
@@ -135,6 +135,11 @@ export default function CheckoutScreen({ navigation }) {
   const pointsRupees = usePoints && loyalty ? Math.min(Math.floor(loyalty.points / 10), Math.floor(base.taxable + base.gst + base.deliveryFee)) : 0;
   const totals = computeTotals({ subtotal: totalAmount, discount, deliveryFee, pointsRupees, gstPercent });
   const finalTotal = totals.total;
+  const cod = codRuleFor(finalTotal, settings?.codRules);
+  const codBlocked = (settings && !settings.codEnabled) || !cod.allowed;
+  useEffect(() => {
+    if (paymentMethod === "COD" && codBlocked) setPaymentMethod("ONLINE");
+  }, [paymentMethod, codBlocked]);
   const gstAmount = totals.gst;
   // The minimum order is checked on the cart BEFORE the coupon, so a coupon never blocks checkout.
   const belowMinimum = settings && totalAmount < settings.minOrderAmount && totalAmount > 0;
@@ -251,6 +256,12 @@ export default function CheckoutScreen({ navigation }) {
       Alert.alert("Minimum order", `The minimum order is ${rupees(settings.minOrderAmount)} (before GST and discounts). Please add more items to continue.`);
       return;
     }
+    const catShort = categoryShortfalls(items);
+    if (catShort.length) {
+      const c = catShort[0];
+      Alert.alert("Minimum order", `${c.name} needs a minimum of ${c.min} per order. You have ${c.have}. Please add ${c.min - c.have} more.`);
+      return;
+    }
     if (boxesShort) {
       Alert.alert("Meal boxes", `Meal boxes need a minimum of ${boxMin} meals per order. You have ${boxes}. Please add ${boxMin - boxes} more.`);
       return;
@@ -289,7 +300,7 @@ export default function CheckoutScreen({ navigation }) {
           .catch(() => {}); // saving the address is a convenience, never block the order on it
       }
 
-      if (paymentMethod === "COD") {
+      if (paymentMethod === "COD" && !(order.advanceAmount > 0)) {
         clearCart();
         Alert.alert("Order placed!", "Pay in cash when your order arrives.", [
           { text: "Track order", onPress: () => navigation.replace("OrderDetail", { orderId: order.id }) },
@@ -315,7 +326,9 @@ export default function CheckoutScreen({ navigation }) {
         razorpaySignature: rpResult.razorpay_signature,
       });
       clearCart();
-      Alert.alert("Order placed!", `Payment confirmed. Total: ${rupees(order.totalAmount)}`, [
+      Alert.alert("Order placed!", order.paymentMethod === "COD"
+        ? `Advance of ${rupees(order.advanceAmount)} received. Pay ${rupees(order.totalAmount - order.advanceAmount)} in cash on delivery.`
+        : `Payment confirmed. Total: ${rupees(order.totalAmount)}`, [
         { text: "Track order", onPress: () => navigation.replace("OrderDetail", { orderId: order.id }) },
       ]);
     } catch (err) {
@@ -496,15 +509,21 @@ export default function CheckoutScreen({ navigation }) {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setPaymentMethod("COD")}
-            disabled={settings && !settings.codEnabled}
-            style={[styles.payOption, paymentMethod === "COD" && styles.payOptionActive, settings && !settings.codEnabled && { opacity: 0.4 }]}
+            disabled={codBlocked}
+            style={[styles.payOption, paymentMethod === "COD" && styles.payOptionActive, codBlocked && { opacity: 0.4 }]}
           >
             <Text style={styles.payTitle}>Cash on delivery</Text>
-            <Text style={styles.paySub}>Pay at the door</Text>
+            <Text style={styles.paySub}>{cod.allowed ? `${cod.advancePercent}% now, rest at the door` : `Above ${rupees(cod.minTotal)}`}</Text>
           </TouchableOpacity>
         </View>
         {settings && !settings.codEnabled && (
           <Text style={styles.hint}>Cash on delivery isn't available right now.</Text>
+        )}
+        {settings?.codEnabled !== false && !cod.allowed && (
+          <Text style={styles.hint}>Cash on delivery is available for orders above {rupees(cod.minTotal)}.</Text>
+        )}
+        {paymentMethod === "COD" && cod.allowed && (
+          <Text style={styles.hint}>Pay {rupees(cod.advance)} ({cod.advancePercent}%) online now. Pay the remaining {rupees(cod.balance)} in cash on delivery.</Text>
         )}
         {loyalty && loyalty.points >= 10 && (
           <TouchableOpacity style={styles.pointsRow} onPress={() => setUsePoints((v) => !v)} activeOpacity={0.8}>
@@ -587,7 +606,7 @@ export default function CheckoutScreen({ navigation }) {
 
       <TouchableOpacity style={[styles.button, (belowMinimum || boxesShort || dateTimeInvalid || !address.trim() || !phone) && { opacity: 0.55 }]} onPress={placeOrder} disabled={submitting}>
         <Text style={styles.buttonText}>
-          {submitting ? "Processing…" : paymentMethod === "COD" ? `Place order · ${rupees(finalTotal)}` : `Pay ${rupees(finalTotal)}`}
+          {submitting ? "Processing…" : paymentMethod === "COD" ? `Pay ${rupees(cod.advance)} advance & place order` : `Pay ${rupees(finalTotal)}`}
         </Text>
       </TouchableOpacity>
     </ScrollView>

@@ -58,3 +58,27 @@ export function longDate(iso) {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
 }
+
+// Cash on delivery rules (same as the server): none up to the minimum, then a part paid online first.
+export function codRuleFor(total, rules) {
+  const r = { minTotal: 3000, tier2Total: 6000, advancePct1: 25, advancePct2: 50, ...(rules || {}) };
+  const t = Math.round((Number(total) || 0) * 100) / 100;
+  if (!(t > r.minTotal)) return { allowed: false, minTotal: r.minTotal, advancePercent: 100, advance: t, balance: 0 };
+  const pct = t > r.tier2Total ? r.advancePct2 : r.advancePct1;
+  const advance = Math.ceil((t * pct) / 100);
+  return { allowed: true, minTotal: r.minTotal, advancePercent: pct, advance, balance: Math.round((t - advance) * 100) / 100 };
+}
+
+// Category minimums set by the admin: pieces per category in one order (items sold by weight are not counted).
+// Returns the categories still short, e.g. [{ name: "Sweets", min: 10, have: 6 }].
+export function categoryShortfalls(items) {
+  const byCat = {};
+  for (const l of items || []) {
+    const m = l.menuItem;
+    const c = m && m.category;
+    if (!c || !(c.minOrderQty > 0) || m.soldByWeight) continue;
+    if (!byCat[c.id]) byCat[c.id] = { name: c.name, min: c.minOrderQty, have: 0 };
+    byCat[c.id].have += Number(l.quantity) || 0;
+  }
+  return Object.values(byCat).filter((x) => x.have < x.min);
+}

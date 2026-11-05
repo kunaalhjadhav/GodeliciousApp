@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import { useCart } from "../context/CartContext";
 import { useLang } from "../i18n";
 import { colors, spacing } from "../theme";
-import { rupees, weightLabel, computeTotals, mealBoxCount } from "../utils";
+import { rupees, weightLabel, computeTotals, mealBoxCount, categoryShortfalls } from "../utils";
 
 function ProgressRow({ label, status, ratio, done }) {
   return (
@@ -56,6 +56,7 @@ export default function CartScreen({ navigation }) {
   const gap = freeAt > 0 ? Math.max(0, freeAt - totalAmount) : 0;
   const boxes = mealBoxCount(items);
   const boxesShort = boxes > 0 && boxes < boxMin;
+  const catShort = categoryShortfalls(items);
 
   // Suggest a bestseller that, added a few times, gets the order to free delivery
   useEffect(() => {
@@ -105,7 +106,7 @@ export default function CartScreen({ navigation }) {
     );
   }
 
-  const belowMin = (minOrder > 0 && totalAmount < minOrder) || boxesShort;
+  const belowMin = (minOrder > 0 && totalAmount < minOrder) || boxesShort || catShort.length > 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.paper }}>
@@ -251,6 +252,9 @@ export default function CartScreen({ navigation }) {
       />
 
       <View style={styles.footer}>
+        {catShort.map((c) => (
+          <Text key={c.name} style={styles.minWarn}>{c.name} needs a minimum of {c.min} per order. Add {c.min - c.have} more.</Text>
+        ))}
         {boxesShort && <Text style={styles.minWarn}>Meal boxes need at least {boxMin} meals per order. Add {boxMin - boxes} more.</Text>}
         {!boxesShort && minOrder > 0 && totalAmount < minOrder && <Text style={styles.minWarn}>Add {rupees(minOrder - totalAmount)} more to reach the minimum order.</Text>}
         <TouchableOpacity style={[styles.checkoutBtn, belowMin && { opacity: 0.45 }]} disabled={belowMin} onPress={() => navigation.navigate("Checkout")}>
