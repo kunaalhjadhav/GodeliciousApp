@@ -80,7 +80,7 @@ export default function VenueDetailScreen({ route, navigation }) {
         eventType, eventDate: date, startTime: range ? range[0] : "", endTime: range ? range[1] : "",
         guestCount: Number(guests), foodOption: food, services, contactPhone: phone, notes,
       });
-      Alert.alert("Request sent", "The venue owner will accept or decline soon. You'll get a notification.", [
+      Alert.alert("Request sent", "The venue owner will accept and share a price soon. Once accepted, pay a small advance in My venue requests to confirm your date.", [
         { text: "View my requests", onPress: () => navigation.replace("MyVenueRequests") },
       ]);
     } catch (e) {

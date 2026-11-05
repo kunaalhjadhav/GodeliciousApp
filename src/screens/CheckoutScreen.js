@@ -6,7 +6,7 @@ import { api, API_URL } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { colors, spacing } from "../theme";
-import { rupees, computeTotals, mealBoxCount, codRuleFor } from "../utils";
+import { rupees, computeTotals, mealBoxCount, codRuleFor, categoryShortfalls } from "../utils";
 import { APP_NAME } from "../brand";
 import { GOOGLE_MAPS_API_KEY } from "../config";
 import LocationPickerMap from "../components/LocationPickerMap";
@@ -254,6 +254,12 @@ export default function CheckoutScreen({ navigation }) {
     }
     if (belowMinimum) {
       Alert.alert("Minimum order", `The minimum order is ${rupees(settings.minOrderAmount)} (before GST and discounts). Please add more items to continue.`);
+      return;
+    }
+    const catShort = categoryShortfalls(items);
+    if (catShort.length) {
+      const c = catShort[0];
+      Alert.alert("Minimum order", `${c.name} needs a minimum of ${c.min} per order. You have ${c.have}. Please add ${c.min - c.have} more.`);
       return;
     }
     if (boxesShort) {

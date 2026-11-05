@@ -7,6 +7,7 @@ import { FavoritesProvider } from "./src/context/FavoritesContext";
 import { LanguageProvider } from "./src/i18n";
 import RootNavigator from "./src/navigation/RootNavigator";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
+import ErrorBoundary from "./src/components/ErrorBoundary";
 
 const ONBOARDING_KEY = "godelicious_onboarding_seen";
 
@@ -32,7 +33,9 @@ export default function App() {
         <AuthProvider>
           <FavoritesProvider>
             <CartProvider>
-              <RootNavigator />
+              <ErrorBoundary>
+                <RootNavigator />
+              </ErrorBoundary>
               {checkedOnboarding && showOnboarding && <OnboardingScreen onDone={dismissOnboarding} />}
             </CartProvider>
           </FavoritesProvider>
