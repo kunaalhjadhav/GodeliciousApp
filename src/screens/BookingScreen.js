@@ -7,7 +7,7 @@ import RazorpayCheckout from "react-native-razorpay";
 import { api, API_URL } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { colors, spacing } from "../theme";
-import { rupees, computeTotals } from "../utils";
+import { rupees, computeTotals, codRuleFor } from "../utils";
 import { GOOGLE_MAPS_API_KEY } from "../config";
 import LocationPickerMap from "../components/LocationPickerMap";
 
@@ -164,6 +164,11 @@ export default function BookingScreen({ route, navigation }) {
   // GST is added on top of (staff + add-ons - coupon); the minimum is checked before the coupon.
   const totals = computeTotals({ subtotal, discount, deliveryFee, gstPercent });
   const finalTotal = totals.total;
+  const cod = codRuleFor(finalTotal, settings?.codRules);
+  const codBlocked = (settings && !settings.codEnabled) || !cod.allowed;
+  useEffect(() => {
+    if (paymentMethod === "COD" && codBlocked) setPaymentMethod("ONLINE");
+  }, [paymentMethod, codBlocked]);
   const gstAmount = totals.gst;
   const belowMinimum = settings && subtotal < settings.minOrderAmount && subtotal > 0;
   const dateTimeInvalid = !eventDate || !eventTime || combineDateTime(eventDate, eventTime) < new Date(Date.now() + MIN_LEAD_HOURS * 60 * 60 * 1000);
@@ -229,7 +234,7 @@ export default function BookingScreen({ route, navigation }) {
       };
       const { order } = await api.createOrder({ ...payload, source: "app" });
 
-      if (paymentMethod === "COD") {
+      if (paymentMethod === "COD" && !(order.advanceAmount > 0)) {
         Alert.alert("Booking confirmed!", "Pay in cash when your booking is fulfilled.", [
           { text: "Track order", onPress: () => navigation.replace("OrderDetail", { orderId: order.id }) },
         ]);
@@ -253,7 +258,9 @@ export default function BookingScreen({ route, navigation }) {
         razorpayPaymentId: rpResult.razorpay_payment_id,
         razorpaySignature: rpResult.razorpay_signature,
       });
-      Alert.alert("Booking confirmed!", `Payment received. Total: ${rupees(order.totalAmount)}`, [
+      Alert.alert("Booking confirmed!", order.paymentMethod === "COD"
+        ? `Advance of ${rupees(order.advanceAmount)} received. Pay ${rupees(order.totalAmount - order.advanceAmount)} in cash on delivery.`
+        : `Payment received. Total: ${rupees(order.totalAmount)}`, [
         { text: "Track order", onPress: () => navigation.replace("OrderDetail", { orderId: order.id }) },
       ]);
     } catch (err) {
@@ -413,12 +420,18 @@ export default function BookingScreen({ route, navigation }) {
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setPaymentMethod("COD")}
-          disabled={settings && !settings.codEnabled}
-          style={[styles.paymentBtn, paymentMethod === "COD" && styles.paymentBtnActive, settings && !settings.codEnabled && { opacity: 0.4 }]}
+          disabled={codBlocked}
+          style={[styles.paymentBtn, paymentMethod === "COD" && styles.paymentBtnActive, codBlocked && { opacity: 0.4 }]}
         >
           <Text style={[styles.paymentBtnText, paymentMethod === "COD" && styles.paymentBtnTextActive]}>Cash on delivery</Text>
         </TouchableOpacity>
       </View>
+      {settings?.codEnabled !== false && !cod.allowed && (
+        <Text style={styles.codHint}>Cash on delivery is available for orders above {rupees(cod.minTotal)}.</Text>
+      )}
+      {paymentMethod === "COD" && cod.allowed && (
+        <Text style={styles.codHint}>Pay {rupees(cod.advance)} ({cod.advancePercent}%) online now. Pay the remaining {rupees(cod.balance)} in cash on delivery.</Text>
+      )}
 
       <View style={styles.summary}>
         {needsStaff && (
@@ -465,7 +478,7 @@ export default function BookingScreen({ route, navigation }) {
 
       <TouchableOpacity style={[styles.button, (belowMinimum || dateTimeInvalid || !address.trim() || !phone || !guestCount) && { opacity: 0.55 }]} onPress={placeBooking} disabled={submitting}>
         <Text style={styles.buttonText}>
-          {submitting ? "Processing…" : paymentMethod === "COD" ? "Confirm booking (Cash on delivery)" : "Pay & confirm booking"}
+          {submitting ? "Processing…" : paymentMethod === "COD" ? `Pay ${rupees(cod.advance)} advance & confirm` : "Pay & confirm booking"}
         </Text>
       </TouchableOpacity>
     </ScrollView>
@@ -473,6 +486,7 @@ export default function BookingScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  codHint: { fontSize: 12, color: colors.basil, marginTop: 6, marginBottom: 4 },
   container: { padding: spacing.lg, backgroundColor: colors.paper, flexGrow: 1 },
   orderTypeHeader: { flexDirection: "row", alignItems: "center", marginBottom: spacing.lg },
   orderTypeImage: { width: 48, height: 48, borderRadius: 6, marginRight: spacing.sm },
