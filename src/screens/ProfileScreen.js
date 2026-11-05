@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Switch, Share, TextInput, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Switch, Share, TextInput, Alert, Linking } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -70,6 +70,28 @@ export default function ProfileScreen({ navigation }) {
 
   const activePlans = plans.filter((p) => p.status === "ACTIVE").length;
 
+
+  function confirmDelete() {
+    Alert.alert(
+      "Delete your account?",
+      "Your profile, saved addresses, favourites, reward points and chat messages will be deleted. Past order and payment records are kept for tax purposes without your name or phone. This can't be undone.",
+      [
+        { text: "Keep my account", style: "cancel" },
+        {
+          text: "Delete", style: "destructive",
+          onPress: async () => {
+            try {
+              await api.deleteAccount();
+              Alert.alert("Account deleted", "Your account has been deleted.");
+              logout();
+            } catch (e) {
+              Alert.alert("Couldn't delete", e.message);
+            }
+          },
+        },
+      ]
+    );
+  }
   return (
     <ScrollView style={{ backgroundColor: colors.paper }} contentContainerStyle={{ paddingBottom: spacing.xl }} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
@@ -136,8 +158,13 @@ export default function ProfileScreen({ navigation }) {
 
         <View style={[styles.card, { paddingVertical: 4 }]}>
           <Row label={t("help_support")} onPress={() => navigation.navigate("ChatTab")} />
-          <TouchableOpacity style={[styles.row, { borderBottomWidth: 0 }]} onPress={logout}>
+          <Row label="Cancellation & refund policy" onPress={() => Linking.openURL("https://godelicious.in/refund-policy")} />
+          <Row label="Privacy policy" onPress={() => Linking.openURL("https://godelicious.in/privacy")} />
+          <TouchableOpacity style={styles.row} onPress={logout}>
             <Text style={[styles.rowLabel, { color: colors.chili, fontWeight: "600" }]}>{t("log_out")}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.row, { borderBottomWidth: 0 }]} onPress={confirmDelete}>
+            <Text style={[styles.rowLabel, { color: colors.inkFaint }]}>Delete my account</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.small}>App version {APP_BUILD}</Text>

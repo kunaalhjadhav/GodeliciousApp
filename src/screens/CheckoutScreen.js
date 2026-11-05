@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Image, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Image, ActivityIndicator, Linking } from "react-native";
 import Geolocation from "@react-native-community/geolocation";
 import RazorpayCheckout from "react-native-razorpay";
 import { api, API_URL } from "../api/client";
@@ -609,6 +609,12 @@ export default function CheckoutScreen({ navigation }) {
           {submitting ? "Processing…" : paymentMethod === "COD" ? `Pay ${rupees(cod.advance)} advance & place order` : `Pay ${rupees(finalTotal)}`}
         </Text>
       </TouchableOpacity>
+      <Text style={{ fontSize: 12, color: colors.inkFaint, textAlign: "center", marginTop: 10, marginBottom: 20 }}>
+        By placing this order you agree to our{" "}
+        <Text style={{ textDecorationLine: "underline" }} onPress={() => Linking.openURL("https://godelicious.in/refund-policy")}>
+          Cancellation & Refund Policy
+        </Text>.
+      </Text>
     </ScrollView>
   );
 }

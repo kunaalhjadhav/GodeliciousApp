@@ -49,6 +49,7 @@ export const api = {
     request("/api/auth/register", { method: "POST", body: { name, email, password, phone } }),
   login: (email, password) => request("/api/auth/login", { method: "POST", body: { email, password } }),
   me: () => request("/api/auth/me"),
+  deleteAccount: () => request("/api/auth/me", { method: "DELETE" }),
 
   listCategories: () => request("/api/menu/categories"),
   listMenu: (categoryId) =>
