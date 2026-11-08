@@ -32,7 +32,7 @@ export default function RegisterScreen({ navigation }) {
       <Text style={styles.title}>Create account</Text>
 
       <Text style={styles.label}>Full name</Text>
-      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Jane Doe" />
+      <TextInput style={styles.input} placeholderTextColor="#9AA8A0" value={name} onChangeText={setName} placeholder="Jane Doe" />
 
       <Text style={styles.label}>Email</Text>
       <TextInput
@@ -41,10 +41,10 @@ export default function RegisterScreen({ navigation }) {
       />
 
       <Text style={styles.label}>Phone</Text>
-      <TextInput style={styles.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="9876543210" />
+      <TextInput style={styles.input} placeholderTextColor="#9AA8A0" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="9876543210" />
 
       <Text style={styles.label}>Password</Text>
-      <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry placeholder="At least 6 characters" />
+      <TextInput style={styles.input} placeholderTextColor="#9AA8A0" value={password} onChangeText={setPassword} secureTextEntry placeholder="At least 6 characters" />
 
       <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={submitting}>
         <Text style={styles.buttonText}>{submitting ? "Creating…" : "Create account"}</Text>

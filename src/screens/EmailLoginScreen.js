@@ -30,8 +30,8 @@ export default function EmailLoginScreen({ navigation }) {
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Sign in with email</Text>
       <Text style={styles.sub}>Use the email and password you registered with.</Text>
-      <TextInput style={styles.input} placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
-      <TextInput style={styles.input} placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
+      <TextInput style={styles.input} placeholderTextColor="#9AA8A0" placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
+      <TextInput style={styles.input} placeholderTextColor="#9AA8A0" placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
       <TouchableOpacity style={[styles.button, submitting && { opacity: 0.6 }]} onPress={handleLogin} disabled={submitting}>
         <Text style={styles.buttonText}>{submitting ? "Please wait…" : "Sign in"}</Text>
       </TouchableOpacity>

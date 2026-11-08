@@ -7,14 +7,21 @@ import { useAuth } from "../context/AuthContext";
 // switched on (Firebase set up on the server). Apple's button follows Apple's black style.
 export default function SocialButtons({ dark = false }) {
   const { loginWithSocial } = useAuth();
-  const [on, setOn] = useState(false);
+  const [google, setGoogle] = useState(false);
+  const [appleOn, setAppleOn] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.firebaseStatus().then((d) => setOn(Boolean(d.enabled))).catch(() => {});
+    api.firebaseStatus().then((d) => {
+      const g = d.google !== undefined ? Boolean(d.google) : Boolean(d.enabled);
+      const a = Boolean(d.apple);
+      // App Store rule: on iPhone, Google sign-in may only be offered together with Sign in with Apple.
+      setGoogle(Platform.OS === "ios" ? g && a : g);
+      setAppleOn(a);
+    }).catch(() => {});
   }, []);
 
-  if (!on) return null;
+  if (!google && !appleOn) return null;
 
   async function go(provider) {
     setBusy(true);
@@ -28,7 +35,7 @@ export default function SocialButtons({ dark = false }) {
       <Text style={styles.appleText}>{Platform.OS === "ios" ? "  " : ""}Continue with Apple</Text>
     </TouchableOpacity>
   );
-  const google = (
+  const googleBtn = (
     <TouchableOpacity key="google" style={[styles.btn, styles.google]} onPress={() => go("google")} disabled={busy} accessibilityLabel="Continue with Google">
       <Text style={styles.gLogo}>
         <Text style={{ color: "#4285F4" }}>G</Text>
@@ -45,7 +52,7 @@ export default function SocialButtons({ dark = false }) {
         <View style={[styles.line, dark && styles.lineDark]} />
       </View>
       {/* Apple first on iPhone, Google first on Android */}
-      {Platform.OS === "ios" ? [apple, google] : [google, apple]}
+      {(Platform.OS === "ios" ? [appleOn && apple, google && googleBtn] : [google && googleBtn, appleOn && apple]).filter(Boolean)}
       {busy && <Text style={[styles.hint, dark && styles.orDark]}>Finish signing in on the page that opened, then come back here.</Text>}
     </View>
   );
