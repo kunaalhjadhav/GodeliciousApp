@@ -7,6 +7,9 @@ import { api } from "../api/client";
 import { colors, spacing } from "../theme";
 import { rupees, longDate } from "../utils";
 import TrackingMap from "../components/TrackingMap";
+import { WebView } from "react-native-webview";
+
+const TRACK_BASE = "https://godelicious.in";
 
 const STEPS = ["PENDING", "CONFIRMED", "PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
 const STEP_TITLES = {
@@ -159,6 +162,26 @@ export default function OrderDetailScreen({ route, navigation }) {
           </View>
         )}
 
+        {!!order.trackToken && !!partner && order.status === "OUT_FOR_DELIVERY" && (
+          <View style={styles.liveBox}>
+            <WebView
+              source={{ uri: `${TRACK_BASE}/track/${order.trackToken}` }}
+              style={{ height: 380, borderRadius: 14 }}
+              originWhitelist={["https://*"]}
+              javaScriptEnabled
+            />
+            <TouchableOpacity onPress={() => Linking.openURL(`${TRACK_BASE}/track/${order.trackToken}`)} style={styles.liveOpen}>
+              <Text style={styles.actionText}>Open live tracking full screen</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {!!order.deliveryOtp && order.status === "OUT_FOR_DELIVERY" && (
+          <View style={styles.otpBox}>
+            <Text style={styles.partnerSub}>Delivery code — give it to the rider when you receive your food</Text>
+            <Text style={styles.otpText}>{order.deliveryOtp}</Text>
+          </View>
+        )}
+
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.actionBtn}
@@ -274,6 +297,10 @@ const styles = StyleSheet.create({
   partnerSub: { fontSize: 12, color: colors.inkFaint, marginTop: 2 },
   callBtn: { backgroundColor: colors.basil, borderRadius: 20, paddingVertical: 9, paddingHorizontal: 16 },
   callText: { color: colors.white, fontWeight: "700" },
+  liveBox: { marginBottom: spacing.sm, borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
+  liveOpen: { paddingVertical: 10, alignItems: "center" },
+  otpBox: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.basil, borderRadius: 14, padding: spacing.md, marginBottom: spacing.sm, alignItems: "center" },
+  otpText: { fontSize: 30, fontWeight: "800", letterSpacing: 8, color: colors.charcoal, marginTop: 4 },
   actionRow: { flexDirection: "row", marginTop: spacing.xs },
   actionBtn: { flex: 1, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, borderRadius: 10, paddingVertical: 12, alignItems: "center", marginHorizontal: 4 },
   actionText: { fontSize: 13, fontWeight: "600", color: colors.ink },
